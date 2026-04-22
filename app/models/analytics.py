@@ -7,7 +7,7 @@ class TestResult(Base):
     __tablename__ = "test_results"
 
     id         = Column(Integer, primary_key=True, index=True)
-    user_id    = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id    = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     attempt_id = Column(Integer, ForeignKey("test_attempts.id", ondelete="CASCADE"), nullable=False, index=True)
     subject    = Column(String, nullable=False)   # stores "UG" or "PG" at aggregate level
     score      = Column(Float, nullable=True)

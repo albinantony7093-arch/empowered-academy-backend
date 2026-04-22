@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -24,7 +25,7 @@ router = APIRouter()
 OTP_EXPIRY_MINUTES = 10
 
 
-def _make_tokens(user_id: int) -> dict:
+def _make_tokens(user_id: str) -> dict:
     data = {"sub": str(user_id)}
     return {
         "access_token":  create_access_token(data),
@@ -113,7 +114,7 @@ def verify_otp(payload: OTPVerify, db: Session = Depends(get_db)):
     return _make_tokens(user.id)
 
 
-# ── Login ─────────────────────────────────────────────────────────────────────
+# ── Login (JSON) ──────────────────────────────────────────────────────────────
 
 @router.post("/login", response_model=Token)
 def login(payload: UserLogin, db: Session = Depends(get_db)):
@@ -123,16 +124,23 @@ def login(payload: UserLogin, db: Session = Depends(get_db)):
     return _make_tokens(user.id)
 
 
+# ── Login (Swagger OAuth2 form) ───────────────────────────────────────────────
+
+@router.post("/login/swagger", response_model=Token, include_in_schema=False)
+def login_swagger(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    """Form-based login used by Swagger UI authorize dialog."""
+    user = db.query(User).filter(User.email == form.username).first()
+    if not user or not verify_password(form.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    return _make_tokens(user.id)
+
+
 # ── Refresh ───────────────────────────────────────────────────────────────────
 
 @router.post("/refresh", response_model=Token)
 def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
     user_id = verify_refresh_token(payload.refresh_token)
-    try:
-        uid = int(user_id)
-    except (ValueError, TypeError):
-        raise HTTPException(status_code=401, detail="Invalid token")
-    user = db.query(User).filter(User.id == uid).first()
+    user = db.query(User).filter(User.id == user_id).first()
     if not user:
         logger.warning(f"Refresh attempted for non-existent user_id={user_id}")
         raise HTTPException(status_code=401, detail="User not found")

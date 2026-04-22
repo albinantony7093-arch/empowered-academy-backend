@@ -26,7 +26,7 @@ def get_dashboard(
     results = (
         db.query(TestResult)
         .join(TestAttempt, TestResult.attempt_id == TestAttempt.id)
-        .filter(TestResult.user_id == int(user_id), TestAttempt.exam == exam)
+        .filter(TestResult.user_id == user_id, TestAttempt.exam == exam)
         .order_by(TestResult.created_at.desc())
         .limit(20)
         .all()
@@ -38,7 +38,7 @@ def get_dashboard(
     responses = (
         db.query(Response)
         .join(TestAttempt, Response.attempt_id == TestAttempt.id)
-        .filter(TestAttempt.user_id == int(user_id), Response.exam == exam)
+        .filter(TestAttempt.user_id == user_id, Response.exam == exam)
         .all()
     )
 

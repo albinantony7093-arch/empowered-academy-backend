@@ -13,7 +13,7 @@ class TestAttempt(Base):
     __tablename__ = "test_attempts"
 
     id           = Column(Integer, primary_key=True, index=True)
-    user_id      = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id      = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     test_id      = Column(String, unique=True, nullable=False, index=True)
     exam         = Column(String, nullable=False)
     status       = Column(String, default=AttemptStatus.generated, nullable=False)  # stored as plain string

@@ -38,7 +38,7 @@ def get_questions(
     test_id = str(uuid.uuid4())
 
     attempt = TestAttempt(
-        user_id=int(user_id),
+        user_id=user_id,
         test_id=test_id,
         exam=exam,
         status=AttemptStatus.generated,
@@ -71,7 +71,7 @@ def submit_test(
     # Validate test session belongs to this user
     attempt = db.query(TestAttempt).filter(
         TestAttempt.test_id == payload.test_id,
-        TestAttempt.user_id == int(user_id),
+        TestAttempt.user_id == user_id,
     ).first()
 
     if not attempt:
@@ -115,7 +115,7 @@ def submit_test(
 
     # Save aggregate TestResult row for dashboard/rank queries
     db.add(TestResult(
-        user_id=int(user_id),
+        user_id=user_id,
         attempt_id=attempt.id,
         subject=exam,
         score=float(score),
