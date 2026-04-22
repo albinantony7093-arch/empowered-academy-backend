@@ -30,14 +30,27 @@ def _register_models() -> None:
     import app.models.test_attempt as _ta; assert _ta
     import app.models.analytics as _a; assert _a
     import app.models.response as _r; assert _r
+    import app.models.otp as _o; assert _o
 
 
 _register_models()
-Base.metadata.create_all(bind=engine)
+try:
+    Base.metadata.create_all(bind=engine, checkfirst=True)
+except Exception as _db_err:
+    logger.error(f"Could not create DB tables at startup: {_db_err}")
+
+# Pre-load question datasets into memory at startup — avoids cold-start lag
+# under concurrent first requests
+from app.utils.question_engine import load_exam as _load_exam
+try:
+    _load_exam("UG")
+    _load_exam("PG")
+except Exception as _e:
+    logger.warning(f"Could not pre-load question datasets: {_e}")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

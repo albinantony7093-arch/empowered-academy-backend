@@ -1,14 +1,41 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
+from typing import Annotated
+from pydantic import StringConstraints
+
+Name     = Annotated[str, StringConstraints(min_length=1, max_length=100, strip_whitespace=True)]
+Password = Annotated[str, StringConstraints(min_length=6, max_length=128)]
+OTPCode  = Annotated[str, StringConstraints(min_length=6, max_length=6, pattern=r"^\d{6}$")]
+
 
 class UserCreate(BaseModel):
-    email: EmailStr
-    password: str
-    full_name: str
+    email:     EmailStr
+    password:  Password
+    full_name: Name
 
 class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
+    email:    EmailStr
+    password: Password
 
 class Token(BaseModel):
-    access_token: str
-    token_type: str
+    access_token:  str
+    refresh_token: str
+    token_type:    str
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+class OTPVerify(BaseModel):
+    email: EmailStr
+    otp:   OTPCode
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class VerifyResetOTP(BaseModel):
+    email: EmailStr
+    otp:   OTPCode
+
+class ResetPassword(BaseModel):
+    email:        EmailStr
+    otp:          OTPCode
+    new_password: Password
