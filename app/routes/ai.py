@@ -10,7 +10,10 @@ router = APIRouter()
 
 def _get_openai_key() -> str | None:
     """Re-read at call time so a missing key doesn't crash the whole app."""
-    return settings.OPENAI_API_KEY if settings.OPENAI_API_KEY and not settings.OPENAI_API_KEY.startswith("sk-your") else None
+    key = settings.OPENAI_API_KEY
+    if not key or key.startswith("sk-your") or key.startswith("sk-test"):
+        return None
+    return key
 
 class MentorRequest(BaseModel):
     topic: str

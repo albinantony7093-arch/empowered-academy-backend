@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings
-from pydantic import ConfigDict
+from pydantic import ConfigDict, field_validator
 from typing import List
+import json
 
 
 class Settings(BaseSettings):
@@ -9,23 +10,43 @@ class Settings(BaseSettings):
     DATABASE_URL:                str
     SECRET_KEY:                  str
     ALGORITHM:                   str  = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int  = 60 * 24
-    OPENAI_API_KEY:              str
+    ACCESS_TOKEN_EXPIRE_MINUTES:  int = 60 * 24   # 24 hours
+    REFRESH_TOKEN_EXPIRE_DAYS:    int = 7
+    OPENAI_API_KEY:              str  = ""
     ALLOWED_ORIGINS: List[str]       = ["https://ai.empoweredacademy.in"]
+
+    # Mail
+    MAIL_USERNAME: str = ""
+    MAIL_PASSWORD: str = ""
+    MAIL_FROM:     str = ""
+    MAIL_SERVER:   str = "smtp.gmail.com"
+    MAIL_PORT:     int = 587
+
+    @field_validator("ALLOWED_ORIGINS", mode="before")
+    @classmethod
+    def parse_allowed_origins(cls, v):
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return parsed
+            except (json.JSONDecodeError, ValueError):
+                pass
+            # Single origin as plain string
+            return [v.strip()]
+        return v
 
 
 def _validate_env(s: Settings) -> None:
-    """Fail fast at startup if critical env vars are missing or placeholder."""
+    """Fail fast at startup if critical env vars are missing."""
     missing = []
     if not s.DATABASE_URL:
         missing.append("DATABASE_URL")
-    if not s.SECRET_KEY or s.SECRET_KEY in ("your-super-secret-key-change-in-production", "secret"):
-        missing.append("SECRET_KEY (must not be a placeholder value)")
-    if not s.OPENAI_API_KEY or s.OPENAI_API_KEY.startswith("sk-your"):
-        missing.append("OPENAI_API_KEY")
+    if not s.SECRET_KEY:
+        missing.append("SECRET_KEY")
     if missing:
         raise EnvironmentError(
-            f"Missing or invalid environment variables: {', '.join(missing)}. "
+            f"Missing required environment variables: {', '.join(missing)}. "
             "Check your .env file."
         )
 

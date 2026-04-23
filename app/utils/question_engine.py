@@ -28,6 +28,7 @@ Both normalised to internal shape:
 import json
 import random
 import logging
+import threading
 from app.utils.paths import NEET_UG_DATA_PATH, NEET_PG_DATA_PATH
 
 logger = logging.getLogger(__name__)
@@ -36,15 +37,19 @@ _UG_LIST: list[dict] = []
 _PG_LIST: list[dict] = []
 _UG_MAP:  dict[str, dict] = {}
 _PG_MAP:  dict[str, dict] = {}
+_lock = threading.Lock()
 
 
 def _load_ug() -> None:
-    """Load and normalise UG dataset."""
+    """Load and normalise UG dataset — thread-safe."""
     global _UG_LIST, _UG_MAP
     if _UG_LIST:
         return
-    with open(NEET_UG_DATA_PATH, "r", encoding="utf-8") as f:
-        raw = json.load(f)
+    with _lock:
+        if _UG_LIST:  # double-checked locking
+            return
+        with open(NEET_UG_DATA_PATH, "r", encoding="utf-8") as f:
+            raw = json.load(f)
 
     items: list[dict] = []
     for module in raw.get("question_bank", []):
@@ -80,12 +85,15 @@ def _load_ug() -> None:
 
 
 def _load_pg() -> None:
-    """Load and normalise PG dataset (flat list, option_a/b/c/d fields)."""
+    """Load and normalise PG dataset — thread-safe."""
     global _PG_LIST, _PG_MAP
     if _PG_LIST:
         return
-    with open(NEET_PG_DATA_PATH, "r", encoding="utf-8") as f:
-        raw = json.load(f)
+    with _lock:
+        if _PG_LIST:  # double-checked locking
+            return
+        with open(NEET_PG_DATA_PATH, "r", encoding="utf-8") as f:
+            raw = json.load(f)
 
     items: list[dict] = []
     skipped = 0

@@ -23,10 +23,10 @@ def make_sample_ug_data():
                 "mcqs": [
                     {"id": "UG001", "question": "What is the powerhouse of the cell?",
                      "options": ["A) Nucleus", "B) Mitochondria", "C) Ribosome", "D) Golgi body"],
-                     "answer": "B) Mitochondria"},
+                     "answer": "B"},
                     {"id": "UG002", "question": "Which organelle contains DNA?",
                      "options": ["A) Ribosome", "B) Mitochondria", "C) ER", "D) Vacuole"],
-                     "answer": "B) Mitochondria"},
+                     "answer": "B"},
                 ]
             },
             {
@@ -35,7 +35,7 @@ def make_sample_ug_data():
                 "mcqs": [
                     {"id": "UG003", "question": "What is the functional group of an alcohol?",
                      "options": ["A) -COOH", "B) -OH", "C) -NH2", "D) -CHO"],
-                     "answer": "B) -OH"},
+                     "answer": "B"},
                 ]
             }
         ]
@@ -45,11 +45,13 @@ def make_sample_ug_data():
 def make_sample_pg_data():
     return [
         {"question_id": "PG001", "question": "What is the gold standard for TB diagnosis?",
-         "options": ["A) CXR", "B) Sputum AFB", "C) Culture", "D) PCR"],
-         "correct_answer": "C) Culture", "subject": "Medicine", "module": "Pulmonology"},
+         "option_a": "CXR", "option_b": "Sputum AFB", "option_c": "Culture", "option_d": "PCR",
+         "correct_answer": "C", "subject": "Medicine", "module": "Pulmonology",
+         "difficulty": "H", "explanation": ""},
         {"question_id": "PG002", "question": "Commonest cause of mitral stenosis?",
-         "options": ["A) Rheumatic", "B) Congenital", "C) SLE", "D) Carcinoid"],
-         "correct_answer": "A) Rheumatic", "subject": "Medicine", "module": "Cardiology"},
+         "option_a": "Rheumatic", "option_b": "Congenital", "option_c": "SLE", "option_d": "Carcinoid",
+         "correct_answer": "A", "subject": "Medicine", "module": "Cardiology",
+         "difficulty": "M", "explanation": ""},
     ]
 
 
@@ -83,17 +85,32 @@ def client():
 
 @pytest.fixture
 def auth_headers(client):
-    """Register + login a test user, return bearer token headers."""
-    client.post("/auth/register", json={
+    """Register + verify OTP + login a test user, return bearer token headers."""
+    with patch("app.routes.auth.send_otp_email"):
+        resp = client.post("/auth/register", json={
+            "email": "test@empoweredacademy.in",
+            "password": "TestPass123!",
+            "full_name": "Test Student"
+        })
+        # Extract OTP from the pending_users table via direct DB query
+        from app.core.database import SessionLocal
+        from app.models.otp import PendingUser
+        db = SessionLocal()
+        pending = db.query(PendingUser).filter(
+            PendingUser.email == "test@empoweredacademy.in"
+        ).first()
+        otp = pending.otp if pending else "000000"
+        db.close()
+
+    client.post("/auth/verify-otp", json={
         "email": "test@empoweredacademy.in",
-        "password": "TestPass123!",
-        "full_name": "Test Student"
+        "otp": otp,
     })
     resp = client.post("/auth/login", json={
         "email": "test@empoweredacademy.in",
         "password": "TestPass123!"
     })
-    token = resp.json()["access_token"]
+    token = resp.json().get("access_token", "")
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -112,33 +129,47 @@ class TestHealth:
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
 class TestAuth:
-    def test_register_new_user(self, client):
-        r = client.post("/auth/register", json={
-            "email": "new@test.com",
-            "password": "Password1!",
-            "full_name": "New User"
-        })
+    def _register_and_verify(self, client, email, password, full_name):
+        """Helper: register → verify OTP → return user."""
+        with patch("app.routes.auth.send_otp_email"):
+            client.post("/auth/register", json={
+                "email": email, "password": password, "full_name": full_name
+            })
+            from app.core.database import SessionLocal
+            from app.models.otp import PendingUser
+            db = SessionLocal()
+            pending = db.query(PendingUser).filter(PendingUser.email == email).first()
+            otp = pending.otp if pending else "000000"
+            db.close()
+        client.post("/auth/verify-otp", json={"email": email, "otp": otp})
+
+    def test_register_sends_otp(self, client):
+        with patch("app.routes.auth.send_otp_email") as mock_mail:
+            r = client.post("/auth/register", json={
+                "email": "new@test.com",
+                "password": "Password1!",
+                "full_name": "New User"
+            })
         assert r.status_code == 200
-        assert "access_token" in r.json()
+        assert "OTP" in r.json().get("message", "")
 
     def test_duplicate_email_rejected(self, client):
         payload = {"email": "dup@test.com", "password": "Pass1!", "full_name": "Dup"}
-        client.post("/auth/register", json=payload)
-        r = client.post("/auth/register", json=payload)
+        self._register_and_verify(client, **{k: v for k, v in zip(
+            ["email", "password", "full_name"], payload.values()
+        )})
+        with patch("app.routes.auth.send_otp_email"):
+            r = client.post("/auth/register", json=payload)
         assert r.status_code == 400
 
     def test_login_valid_credentials(self, client):
-        client.post("/auth/register", json={
-            "email": "login@test.com", "password": "Pass1!", "full_name": "Login"
-        })
+        self._register_and_verify(client, "login@test.com", "Pass1!", "Login")
         r = client.post("/auth/login", json={"email": "login@test.com", "password": "Pass1!"})
         assert r.status_code == 200
         assert r.json()["token_type"] == "bearer"
 
     def test_login_wrong_password(self, client):
-        client.post("/auth/register", json={
-            "email": "wrongpass@test.com", "password": "RightPass1", "full_name": "X"
-        })
+        self._register_and_verify(client, "wrongpass@test.com", "RightPass1", "X")
         r = client.post("/auth/login", json={
             "email": "wrongpass@test.com", "password": "WrongPass"
         })
@@ -153,17 +184,18 @@ class TestAuth:
 
 class TestQuestionEngine:
     def test_evaluate_all_correct(self):
-        from app.utils.question_engine import evaluate_answers, _UG_LIST, _UG_MAP
-        # Manually seed the engine
         import app.utils.question_engine as qe
         qe._UG_LIST = [
-            {"question_id": "T1", "question": "Q1", "options": ["A","B"],
+            {"question_id": "T1", "question": "Q1",
+             "options": {"A": "Opt A", "B": "Opt B", "C": "Opt C", "D": "Opt D"},
              "correct_answer": "A", "subject": "Bio", "topic": "Cell"},
-            {"question_id": "T2", "question": "Q2", "options": ["A","B"],
+            {"question_id": "T2", "question": "Q2",
+             "options": {"A": "Opt A", "B": "Opt B", "C": "Opt C", "D": "Opt D"},
              "correct_answer": "B", "subject": "Bio", "topic": "Cell"},
         ]
         qe._UG_MAP = {q["question_id"]: q for q in qe._UG_LIST}
 
+        from app.utils.question_engine import evaluate_answers
         result = evaluate_answers("UG", {"T1": "A", "T2": "B"})
         assert result["score"] == 2
         assert result["accuracy"] == 100.0
@@ -172,7 +204,8 @@ class TestQuestionEngine:
     def test_evaluate_all_wrong(self):
         import app.utils.question_engine as qe
         qe._UG_LIST = [
-            {"question_id": "T3", "question": "Q3", "options": ["A","B"],
+            {"question_id": "T3", "question": "Q3",
+             "options": {"A": "Opt A", "B": "Opt B", "C": "Opt C", "D": "Opt D"},
              "correct_answer": "A", "subject": "Chem", "topic": "Organic"},
         ]
         qe._UG_MAP = {q["question_id"]: q for q in qe._UG_LIST}
@@ -186,7 +219,8 @@ class TestQuestionEngine:
     def test_evaluate_unknown_question_skipped(self):
         import app.utils.question_engine as qe
         qe._UG_LIST = [
-            {"question_id": "T4", "question": "Q4", "options": ["A","B"],
+            {"question_id": "T4", "question": "Q4",
+             "options": {"A": "Opt A", "B": "Opt B", "C": "Opt C", "D": "Opt D"},
              "correct_answer": "A", "subject": "Physics", "topic": "Optics"},
         ]
         qe._UG_MAP = {q["question_id"]: q for q in qe._UG_LIST}
@@ -267,10 +301,17 @@ class TestAnalytics:
 # ── Rank service unit tests ────────────────────────────────────────────────────
 
 class TestRankService:
+    def _make_mock_db(self, total=0, above=0, below=0):
+        mock_db = MagicMock()
+        # Each call to .scalar() returns values in sequence: total, above, below
+        mock_db.query.return_value.filter.return_value.scalar.side_effect = [
+            total, above, below
+        ]
+        return mock_db
+
     def test_low_user_base_fallback(self):
         from app.utils.rank_service import calculate_rank_and_percentile
-        mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value.all.return_value = []
+        mock_db = self._make_mock_db(total=10)
         result = calculate_rank_and_percentile(360, "UG", mock_db)
         assert "rank" in result
         assert "percentile" in result
@@ -279,16 +320,14 @@ class TestRankService:
 
     def test_perfect_score_best_rank(self):
         from app.utils.rank_service import calculate_rank_and_percentile
-        mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value.all.return_value = []
+        mock_db = self._make_mock_db(total=10)
         result = calculate_rank_and_percentile(720, "UG", mock_db)
         assert result["percentile"] == 100.0
         assert result["rank"] == 1
 
     def test_zero_score_lowest_rank(self):
         from app.utils.rank_service import calculate_rank_and_percentile
-        mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value.all.return_value = []
+        mock_db = self._make_mock_db(total=10)
         result = calculate_rank_and_percentile(0, "UG", mock_db)
         assert result["percentile"] == 0.0
 
