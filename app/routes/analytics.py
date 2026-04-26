@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import verify_token
@@ -22,25 +22,30 @@ def get_dashboard(
     Includes recent scores, topic-level accuracy, and weak areas.
     """
     exam = exam.upper()
+    if exam not in ("UG", "PG"):
+        raise HTTPException(status_code=400, detail="Invalid exam type. Choose UG or PG.")
 
-    results = (
-        db.query(TestResult)
-        .join(TestAttempt, TestResult.attempt_id == TestAttempt.id)
-        .filter(TestResult.user_id == user_id, TestAttempt.exam == exam)
-        .order_by(TestResult.created_at.desc())
-        .limit(20)
-        .all()
-    )
+    try:
+        results = (
+            db.query(TestResult)
+            .join(TestAttempt, TestResult.attempt_id == TestAttempt.id)
+            .filter(TestResult.user_id == user_id, TestAttempt.exam == exam)
+            .order_by(TestResult.created_at.desc())
+            .limit(20)
+            .all()
+        )
 
-    recent_scores = [r.score for r in results if r.score is not None]
+        recent_scores = [r.score for r in results if r.score is not None]
 
-    # Aggregate weak areas from per-answer Response rows
-    responses = (
-        db.query(Response)
-        .join(TestAttempt, Response.attempt_id == TestAttempt.id)
-        .filter(TestAttempt.user_id == user_id, Response.exam == exam)
-        .all()
-    )
+        responses = (
+            db.query(Response)
+            .join(TestAttempt, Response.attempt_id == TestAttempt.id)
+            .filter(TestAttempt.user_id == user_id, Response.exam == exam)
+            .all()
+        )
+    except Exception as e:
+        logger.error(f"Dashboard DB query failed for user {user_id}: {e}")
+        raise HTTPException(status_code=503, detail="Could not fetch dashboard data")
 
     topic_stats: dict[str, dict] = {}
     for r in responses:

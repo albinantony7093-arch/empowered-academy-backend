@@ -4,6 +4,8 @@ import bcrypt
 from app.core.config import settings
 from fastapi import HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.orm import Session
+from app.core.database import get_db
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login/swagger")
 
@@ -61,3 +63,27 @@ def verify_refresh_token(token: str) -> str:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired refresh token",
         )
+
+
+def get_current_user(
+    user_id: str = Depends(verify_token),
+    db: Session = Depends(get_db),
+):
+    from app.models.user import User
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    return user
+
+
+def require_admin(user=Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    return user
+
+
+def require_page_admin(user=Depends(get_current_user)):
+    """Allows page_admin or admin roles — limited content management only."""
+    if user.role not in ("admin", "page_admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    return user

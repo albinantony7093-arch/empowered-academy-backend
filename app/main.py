@@ -2,9 +2,11 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError, HTTPException
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.core.config import settings
 from app.core.database import Base, engine
-from app.routes import auth, test, ai
+from app.routes import auth, test, ai, courses as courses_router
 from app.routes import analytics as analytics_router
 from app.middleware.logging import request_logging_middleware
 
@@ -31,6 +33,7 @@ def _register_models() -> None:
     import app.models.analytics as _a; assert _a
     import app.models.response as _r; assert _r
     import app.models.otp as _o; assert _o
+    import app.models.course as _c; assert _c
 
 
 _register_models()
@@ -59,6 +62,21 @@ app.add_middleware(
 app.middleware("http")(request_logging_middleware)
 
 
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    return JSONResponse(status_code=exc.status_code, content={"message": exc.detail})
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = exc.errors()
+    first = errors[0] if errors else {}
+    loc = " -> ".join(str(l) for l in first.get("loc", []) if l != "body")
+    msg = first.get("msg", "Invalid request")
+    detail = f"{loc}: {msg}" if loc else msg
+    return JSONResponse(status_code=422, content={"message": detail})
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(
@@ -74,6 +92,7 @@ app.include_router(auth.router,             prefix="/auth",      tags=["auth"])
 app.include_router(test.router,             prefix="/test",      tags=["test"])
 app.include_router(analytics_router.router, prefix="/analytics", tags=["analytics"])
 app.include_router(ai.router,               prefix="/ai",        tags=["ai"])
+app.include_router(courses_router.router,   prefix="/courses",   tags=["courses"])
 
 
 @app.get("/health", tags=["ops"])
