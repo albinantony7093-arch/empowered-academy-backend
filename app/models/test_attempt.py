@@ -16,7 +16,8 @@ class TestAttempt(Base):
     user_id      = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     test_id      = Column(String, unique=True, nullable=False, index=True)
     exam         = Column(String, nullable=False)
-    status       = Column(String, default=AttemptStatus.generated, nullable=False)  # stored as plain string
+    course_id    = Column(String, ForeignKey("courses.id", ondelete="SET NULL"), nullable=True, index=True)
+    status       = Column(String, default=AttemptStatus.generated, nullable=False)
     score        = Column(Float, nullable=True)
     accuracy     = Column(Float, nullable=True)
     created_at   = Column(DateTime(timezone=True), server_default=func.now())

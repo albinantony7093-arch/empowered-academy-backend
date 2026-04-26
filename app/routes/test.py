@@ -94,35 +94,37 @@ def submit_test(
     weak_areas = result["weak_areas"]
 
     # Mark attempt as submitted
-    attempt.status       = AttemptStatus.submitted
-    attempt.submitted_at = datetime.now(timezone.utc)
-    attempt.score        = float(score)
-    attempt.accuracy     = accuracy
-    db.flush()
+    try:
+        attempt.status       = AttemptStatus.submitted
+        attempt.submitted_at = datetime.now(timezone.utc)
+        attempt.score        = float(score)
+        attempt.accuracy     = accuracy
+        db.flush()
 
-    # Save per-answer Response rows
-    for ans in result["per_answer"]:
-        db.add(Response(
+        for ans in result["per_answer"]:
+            db.add(Response(
+                attempt_id=attempt.id,
+                question_id=ans["question_id"],
+                exam=exam,
+                subject=ans["subject"],
+                topic=ans["topic"],
+                selected_answer=ans["selected"],
+                correct_answer=ans["correct"],
+                is_correct=ans["is_correct"],
+            ))
+
+        db.add(TestResult(
+            user_id=user_id,
             attempt_id=attempt.id,
-            question_id=ans["question_id"],
-            exam=exam,
-            subject=ans["subject"],
-            topic=ans["topic"],
-            selected_answer=ans["selected"],
-            correct_answer=ans["correct"],
-            is_correct=ans["is_correct"],
+            subject=exam,
+            score=float(score),
+            weak_areas=weak_areas,
         ))
 
-    # Save aggregate TestResult row for dashboard/rank queries
-    db.add(TestResult(
-        user_id=user_id,
-        attempt_id=attempt.id,
-        subject=exam,
-        score=float(score),
-        weak_areas=weak_areas,
-    ))
-
-    db.commit()
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to save test results for user {user_id}: {e}")
+        raise HTTPException(status_code=503, detail="Failed to save test results")
 
     # Rank & percentile
     rank_data = calculate_rank_and_percentile(score, exam, db)

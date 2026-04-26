@@ -15,7 +15,7 @@ from app.models.user import User
 from app.models.otp import PendingUser, PasswordResetOTP
 from app.schemas.auth import (
     UserCreate, UserLogin, Token, RefreshRequest, OTPVerify,
-    ForgotPasswordRequest, VerifyResetOTP, ResetPassword,
+    ForgotPasswordRequest, ResetPassword,
 )
 from app.utils.mail import send_otp_email, send_password_reset_email
 
@@ -154,8 +154,7 @@ async def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(
     """Send a password-reset OTP to the given email (silent if user not found)."""
     user = db.query(User).filter(User.email == payload.email).first()
     if not user:
-        # Don't reveal whether the email exists
-        return {"message": "If that email is registered, an OTP has been sent."}
+        raise HTTPException(status_code=404, detail="Email not registered")
 
     otp        = _generate_otp()
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=OTP_EXPIRY_MINUTES)
@@ -176,22 +175,7 @@ async def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(
         logger.error(f"Failed to send reset OTP to {payload.email}: {e}")
         raise HTTPException(status_code=503, detail="Failed to send OTP email. Try again.")
 
-    return {"message": "If that email is registered, an OTP has been sent."}
-
-
-# ── Verify Reset OTP ──────────────────────────────────────────────────────────
-
-@router.post("/verify-reset-otp")
-def verify_reset_otp(payload: VerifyResetOTP, db: Session = Depends(get_db)):
-    """Validate the reset OTP without changing the password yet."""
-    record = db.query(PasswordResetOTP).filter(PasswordResetOTP.email == payload.email).first()
-    if not record or record.otp != payload.otp:
-        raise HTTPException(status_code=400, detail="Invalid OTP")
-    if datetime.now(timezone.utc) > record.expires_at:
-        db.delete(record)
-        db.commit()
-        raise HTTPException(status_code=410, detail="OTP expired. Request a new one.")
-    return {"message": "OTP verified. Proceed to reset your password."}
+    return {"message": "OTP has been sent to your email."}
 
 
 # ── Reset Password ────────────────────────────────────────────────────────────
@@ -200,7 +184,9 @@ def verify_reset_otp(payload: VerifyResetOTP, db: Session = Depends(get_db)):
 def reset_password(payload: ResetPassword, db: Session = Depends(get_db)):
     """Verify OTP and set the new password in one step."""
     record = db.query(PasswordResetOTP).filter(PasswordResetOTP.email == payload.email).first()
-    if not record or record.otp != payload.otp:
+    if not record:
+        raise HTTPException(status_code=404, detail="Email not registered or no OTP requested")
+    if record.otp != payload.otp:
         raise HTTPException(status_code=400, detail="Invalid OTP")
     if datetime.now(timezone.utc) > record.expires_at:
         db.delete(record)
