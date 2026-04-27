@@ -50,3 +50,5 @@ alembic/versions/*.pyc
 
 /venv/pyvenv.cfgvenv/
 /.env
+__pycache__/
+*.pyc
