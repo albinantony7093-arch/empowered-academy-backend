@@ -21,7 +21,7 @@ VALID_EXAMS = {"UG", "PG"}
 
 @router.get("/questions")
 def get_questions(
-    exam: str = "UG",
+    exam: str,
     user_id: str = Depends(verify_token),
     db: Session = Depends(get_db),
 ):

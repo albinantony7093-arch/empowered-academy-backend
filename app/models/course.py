@@ -10,6 +10,7 @@ class Course(Base):
     id = Column(String, primary_key=True, index=True, default=lambda: str(uuid7()))
     title = Column(String, nullable=False)
     description = Column(Text)
+    exam = Column(String, nullable=False, default="UG")  # "UG" or "PG"
     price = Column(Numeric(10, 2), nullable=False, default=0)
     is_active = Column(Boolean, nullable=False, default=True)
     created_by = Column(String, ForeignKey("users.id"), nullable=False)
