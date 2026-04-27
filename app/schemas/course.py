@@ -7,6 +7,7 @@ from datetime import datetime
 class CourseCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     description: Optional[str] = None
+    exam: str = Field(default="UG", pattern="^(UG|PG)$")
     price: Decimal = Field(default=Decimal("0"), ge=0)
 
 
@@ -14,6 +15,7 @@ class CourseOut(BaseModel):
     id: str
     title: str
     description: Optional[str]
+    exam: str
     price: float
     is_active: bool
     created_by: str

@@ -59,6 +59,7 @@ def create_course(
     course = Course(
         title=payload.title,
         description=payload.description,
+        exam=payload.exam.upper(),
         price=payload.price,
         created_by=admin.id,
     )
@@ -139,7 +140,6 @@ def my_enrollments(
 @router.get("/{course_id}/test/start")
 def start_course_test(
     course_id: str,
-    exam: str = "UG",
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -151,9 +151,11 @@ def start_course_test(
     """
     _get_active_enrollment(course_id, user_id=current_user.id, db=db)
 
-    exam = exam.upper()
-    if exam not in ("UG", "PG"):
-        raise HTTPException(status_code=400, detail="Invalid exam type. Choose UG or PG.")
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    exam = course.exam.upper()
 
     # Count tests started today for this course
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -204,26 +206,26 @@ def start_course_test(
     }
 
 
-@router.post("/{course_id}/test/submit")
+@router.post("/test/submit")
 def submit_course_test(
-    course_id: str,
     payload: SubmitAnswersRequest,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Submit answers for a course test and get results."""
-    _get_active_enrollment(course_id, user_id=current_user.id, db=db)
-
     attempt = db.query(TestAttempt).filter(
         TestAttempt.test_id == payload.test_id,
         TestAttempt.user_id == current_user.id,
-        TestAttempt.course_id == course_id,
     ).first()
 
     if not attempt:
         raise HTTPException(status_code=404, detail="Test session not found")
     if attempt.status == AttemptStatus.submitted:
         raise HTTPException(status_code=409, detail="Test already submitted")
+
+    # Validate enrollment using course_id from the attempt
+    if attempt.course_id:
+        _get_active_enrollment(attempt.course_id, user_id=current_user.id, db=db)
 
     result = evaluate_answers(attempt.exam, payload.answers)
 
