@@ -23,7 +23,7 @@ def _get_active_enrollment(course_id: str, user_id: str, db: Session) -> Enrollm
     """Return enrollment if student has active access, else raise 403."""
     enrollment = (
         db.query(Enrollment)
-        .filter(Enrollment.user_id == user_id, Enrollment.course_id == course_id)
+        .filter(Enrollment.user_id == str(user_id), Enrollment.course_id == str(course_id))
         .first()
     )
     if not enrollment:
@@ -162,8 +162,8 @@ def start_course_test(
     tests_today = (
         db.query(TestAttempt)
         .filter(
-            TestAttempt.user_id == current_user.id,
-            TestAttempt.course_id == course_id,
+            TestAttempt.user_id == str(current_user.id),
+            TestAttempt.course_id == str(course_id),
             TestAttempt.created_at >= today_start,
         )
         .count()
