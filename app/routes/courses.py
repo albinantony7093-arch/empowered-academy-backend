@@ -8,8 +8,11 @@ from app.core.database import get_db
 from app.core.security import get_current_user, require_admin, require_page_admin
 from app.models.course import Course, Enrollment
 from app.models.test_attempt import TestAttempt, AttemptStatus
-from app.schemas.course import CourseCreate, CourseOut, EnrollmentOut
+from app.models.analytics import TestResult
+from app.models.response import Response
+from app.schemas.course import CourseCreate, CourseOut, EnrollmentOut, MyCourseOut
 from app.utils.question_engine import generate_questions, evaluate_answers
+from app.utils.rank_service import calculate_rank_and_percentile
 from app.schemas.test import SubmitAnswersRequest
 
 router = APIRouter()
@@ -109,12 +112,12 @@ def enroll_in_course(
     return enrollment
 
 
-@router.get("/my", response_model=List[EnrollmentOut])
+@router.get("/my", response_model=List[MyCourseOut])
 def my_enrollments(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """List current user's enrollments. Syncs expired trials to 'locked' on the fly."""
+    """List current user's enrollments with course details. Syncs expired trials to 'locked' on the fly."""
     enrollments = (
         db.query(Enrollment)
         .filter(Enrollment.user_id == current_user.id)
@@ -134,7 +137,24 @@ def my_enrollments(
             if e.id in locked_ids:
                 e.payment_status = "locked"
 
-    return enrollments
+    course_ids = [e.course_id for e in enrollments]
+    courses = {c.id: c for c in db.query(Course).filter(Course.id.in_(course_ids)).all()}
+
+    return [
+        MyCourseOut(
+            enrollment_id=e.id,
+            payment_status=e.payment_status,
+            course_id=e.course_id,
+            title=courses[e.course_id].title,
+            description=courses[e.course_id].description,
+            exam=courses[e.course_id].exam,
+            price=float(courses[e.course_id].price),
+            keypoints=courses[e.course_id].keypoints,
+            is_active=courses[e.course_id].is_active,
+        )
+        for e in enrollments
+        if e.course_id in courses
+    ]
 
 
 @router.get("/{course_id}/test/start")
@@ -191,6 +211,7 @@ def start_course_test(
         "test_id": test_id,
         "exam": exam,
         "course_id": course_id,
+        "total_questions": len(questions),
         "tests_taken_today": tests_today + 1,
         "tests_remaining_today": DAILY_TEST_LIMIT - tests_today - 1,
         "questions": [
@@ -233,7 +254,30 @@ def submit_course_test(
     attempt.submitted_at = datetime.now(timezone.utc)
     attempt.score = float(result["score"])
     attempt.accuracy = result["accuracy"]
+
+    for ans in result["per_answer"]:
+        db.add(Response(
+            attempt_id=attempt.id,
+            question_id=ans["question_id"],
+            exam=attempt.exam,
+            subject=ans["subject"],
+            topic=ans["topic"],
+            selected_answer=ans["selected"],
+            correct_answer=ans["correct"],
+            is_correct=ans["is_correct"],
+        ))
+
+    db.add(TestResult(
+        user_id=current_user.id,
+        attempt_id=attempt.id,
+        subject=attempt.exam,
+        score=float(result["score"]),
+        weak_areas=result["weak_areas"],
+    ))
+
     db.commit()
+
+    rank_data = calculate_rank_and_percentile(result["score"], attempt.exam, db)
 
     return {
         "test_id": payload.test_id,
@@ -241,5 +285,7 @@ def submit_course_test(
         "total": result["total"],
         "accuracy": result["accuracy"],
         "weak_areas": result["weak_areas"],
+        "rank": rank_data["rank"],
+        "percentile": rank_data["percentile"],
         "per_answer": result["per_answer"],
     }
