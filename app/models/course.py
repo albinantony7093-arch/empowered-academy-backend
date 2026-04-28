@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Numeric, Boolean, ForeignKey, Text, Interval
+from sqlalchemy import Column, String, DateTime, Numeric, Boolean, ForeignKey, Text, Interval, JSON
 from sqlalchemy.sql import func
 from uuid_extensions import uuid7
 from app.core.database import Base
@@ -12,6 +12,7 @@ class Course(Base):
     description = Column(Text)
     exam = Column(String, nullable=False, default="UG")  # "UG" or "PG"
     price = Column(Numeric(10, 2), nullable=False, default=0)
+    keypoints = Column(JSON, nullable=True)  # List of key features
     is_active = Column(Boolean, nullable=False, default=True)
     created_by = Column(String, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
