@@ -6,7 +6,7 @@ from fastapi.exceptions import RequestValidationError, HTTPException
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.core.config import settings
 from app.core.database import Base, engine
-from app.routes import auth, test, ai, courses as courses_router
+from app.routes import auth, test, ai, courses as courses_router, profile as profile_router
 from app.routes import analytics as analytics_router
 from app.middleware.logging import request_logging_middleware
 
@@ -29,6 +29,7 @@ def _register_models() -> None:
     Imports are intentionally side-effect-only.
     """
     import app.models.user as _u; assert _u
+    import app.models.user_profile as _up; assert _up
     import app.models.test_attempt as _ta; assert _ta
     import app.models.analytics as _a; assert _a
     import app.models.response as _r; assert _r
@@ -126,6 +127,7 @@ app.include_router(test.router,             prefix="/test",      tags=["test"])
 app.include_router(analytics_router.router, prefix="/analytics", tags=["analytics"])
 app.include_router(ai.router,               prefix="/ai",        tags=["ai"])
 app.include_router(courses_router.router,   prefix="/courses",   tags=["courses"])
+app.include_router(profile_router.router,   prefix="/profile",   tags=["profile"])
 
 
 @app.get("/health", tags=["ops"])

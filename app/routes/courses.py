@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, timedelta, timezone
 import uuid
+import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_admin, require_page_admin
@@ -13,8 +14,11 @@ from app.models.response import Response
 from app.schemas.course import CourseCreate, CourseOut, EnrollmentOut, MyCourseOut
 from app.utils.question_engine import generate_questions, evaluate_answers
 from app.utils.rank_service import calculate_rank_and_percentile
+from app.utils.mentor_engine import generate_mentor_advice
 from app.schemas.test import SubmitAnswersRequest
+import random
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 TRIAL_DAYS = 4
@@ -49,7 +53,19 @@ def _get_active_enrollment(course_id: str, user_id: str, db: Session) -> Enrollm
 @router.get("/", response_model=List[CourseOut])
 def list_courses(db: Session = Depends(get_db)):
     """Public — list all active courses."""
-    return db.query(Course).filter(Course.is_active == True).all()
+    try:
+        courses = db.query(Course).filter(Course.is_active == True).all()
+        return courses
+    except Exception as e:
+        logger.error(f"Failed to list courses: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "COURSES_FETCH_FAILED",
+                "message": "Unable to fetch courses. Please try again later.",
+                "user_friendly": True
+            }
+        )
 
 
 @router.post("/", response_model=CourseOut, status_code=201)
@@ -82,34 +98,64 @@ def enroll_in_course(
     Enroll in a course. Student gets a 4-day free trial.
     After trial expires the enrollment is locked until payment.
     """
-    course = db.query(Course).filter(Course.id == course_id, Course.is_active == True).first()
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
+    try:
+        course = db.query(Course).filter(Course.id == course_id, Course.is_active == True).first()
+        if not course:
+            raise HTTPException(
+                status_code=404, 
+                detail={
+                    "error": "COURSE_NOT_FOUND",
+                    "message": "Course not found or is no longer available.",
+                    "user_friendly": True
+                }
+            )
 
-    existing = (
-        db.query(Enrollment)
-        .filter(Enrollment.user_id == current_user.id, Enrollment.course_id == course_id)
-        .first()
-    )
-    if existing:
-        raise HTTPException(status_code=409, detail="Already enrolled in this course")
+        existing = (
+            db.query(Enrollment)
+            .filter(Enrollment.user_id == current_user.id, Enrollment.course_id == course_id)
+            .first()
+        )
+        if existing:
+            raise HTTPException(
+                status_code=409, 
+                detail={
+                    "error": "ALREADY_ENROLLED",
+                    "message": "You are already enrolled in this course.",
+                    "user_friendly": True
+                }
+            )
 
-    now = datetime.now(timezone.utc)
-    # Trial ends at end of day (23:59:59) on the 4th day from enrollment date.
-    # e.g. enroll May 4 → access through May 8 23:59:59 UTC
-    trial_end_date = (now + timedelta(days=TRIAL_DAYS)).replace(
-        hour=23, minute=59, second=59, microsecond=0
-    )
-    enrollment = Enrollment(
-        user_id=current_user.id,
-        course_id=course_id,
-        payment_status="trial",
-        trial_ends_at=trial_end_date,
-    )
-    db.add(enrollment)
-    db.commit()
-    db.refresh(enrollment)
-    return enrollment
+        now = datetime.now(timezone.utc)
+        # Trial ends at end of day (23:59:59) on the 4th day from enrollment date.
+        # e.g. enroll May 4 → access through May 8 23:59:59 UTC
+        trial_end_date = (now + timedelta(days=TRIAL_DAYS)).replace(
+            hour=23, minute=59, second=59, microsecond=0
+        )
+        enrollment = Enrollment(
+            user_id=current_user.id,
+            course_id=course_id,
+            payment_status="trial",
+            trial_ends_at=trial_end_date,
+        )
+        db.add(enrollment)
+        db.commit()
+        db.refresh(enrollment)
+        return enrollment
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions as they are already properly formatted
+        raise
+    except Exception as e:
+        logger.error(f"Failed to enroll user {current_user.id} in course {course_id}: {e}")
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "ENROLLMENT_FAILED",
+                "message": "Unable to enroll in course. Please try again later.",
+                "user_friendly": True
+            }
+        )
 
 
 @router.get("/my", response_model=List[MyCourseOut])
@@ -279,6 +325,62 @@ def submit_course_test(
 
     rank_data = calculate_rank_and_percentile(result["score"], attempt.exam, db)
 
+    # Generate 3 random mentor advices based on test performance
+    try:
+        mentor_advice = generate_mentor_advice(result["score"], result["accuracy"], result["weak_areas"])
+        
+        # Extended pool of general advice for better variety
+        general_advice = [
+            "Practice regularly to maintain consistency in your performance.",
+            "Focus on understanding concepts rather than memorizing answers.",
+            "Take breaks between study sessions to improve retention.",
+            "Review your mistakes to avoid repeating them in future tests.",
+            "Time management is crucial - practice solving questions within time limits.",
+            "Create a study schedule and stick to it for better preparation.",
+            "Use active recall techniques while studying for better memory retention.",
+            "Solve previous year papers to understand exam patterns.",
+            "Join study groups to discuss difficult concepts with peers.",
+            "Take mock tests regularly to assess your preparation level.",
+            "Focus on your weak subjects but don't neglect your strong ones.",
+            "Maintain a healthy lifestyle with proper sleep and nutrition.",
+            "Use mnemonics and visual aids to remember complex information.",
+            "Practice meditation or relaxation techniques to manage exam stress.",
+            "Set realistic daily and weekly study goals.",
+            "Reward yourself after completing study milestones.",
+            "Keep revision notes handy for quick last-minute reviews.",
+            "Stay updated with current affairs if relevant to your exam.",
+            "Don't compare your progress with others, focus on your own journey.",
+            "Seek help from teachers or mentors when you're stuck on topics."
+        ]
+        
+        # Combine personalized and general advice for larger pool
+        combined_advice = list(mentor_advice) + general_advice
+        
+        # Shuffle the combined list and pick 3 random unique advices
+        random.shuffle(combined_advice)
+        random_advice = []
+        seen_advice = set()
+        
+        for advice in combined_advice:
+            if advice not in seen_advice and len(random_advice) < 3:
+                random_advice.append(advice)
+                seen_advice.add(advice)
+            if len(random_advice) == 3:
+                break
+        
+        # Fallback if somehow we don't have 3 advices (very unlikely)
+        while len(random_advice) < 3:
+            fallback_advice = f"Keep practicing and stay motivated! Attempt #{len(random_advice) + 1}"
+            random_advice.append(fallback_advice)
+            
+    except Exception as e:
+        logger.warning(f"Failed to generate mentor advice for test {payload.test_id}: {e}")
+        random_advice = [
+            "Great job completing the test! Keep practicing to improve your performance.",
+            "Review your incorrect answers to understand the concepts better.",
+            "Stay consistent with your study schedule and practice regularly."
+        ]
+
     return {
         "test_id": payload.test_id,
         "score": result["score"],
@@ -287,5 +389,6 @@ def submit_course_test(
         "weak_areas": result["weak_areas"],
         "rank": rank_data["rank"],
         "percentile": rank_data["percentile"],
+        "mentor_advice": random_advice,
         "per_answer": result["per_answer"],
     }
