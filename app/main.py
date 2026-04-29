@@ -65,13 +65,11 @@ app.middleware("http")(request_logging_middleware)
 
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    detail = exc.detail
+    message = detail.get("message", str(detail)) if isinstance(detail, dict) else detail
     return JSONResponse(
         status_code=exc.status_code,
-        content={
-            "success": False,
-            "error": _status_label(exc.status_code),
-            "message": exc.detail,
-        },
+        content={"message": message},
     )
 
 
@@ -85,11 +83,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         messages.append(f"{loc}: {msg}" if loc else msg)
     return JSONResponse(
         status_code=422,
-        content={
-            "success": False,
-            "error": "Validation Error",
-            "message": messages[0] if len(messages) == 1 else messages,
-        },
+        content={"message": messages[0] if len(messages) == 1 else "; ".join(messages)},
     )
 
 
@@ -100,11 +94,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
     return JSONResponse(
         status_code=500,
-        content={
-            "success": False,
-            "error": "Internal Server Error",
-            "message": "Something went wrong on our end. Please try again later.",
-        },
+        content={"message": "Something went wrong on our end. Please try again later."},
     )
 
 

@@ -102,12 +102,8 @@ def enroll_in_course(
         course = db.query(Course).filter(Course.id == course_id, Course.is_active == True).first()
         if not course:
             raise HTTPException(
-                status_code=404, 
-                detail={
-                    "error": "COURSE_NOT_FOUND",
-                    "message": "Course not found or is no longer available.",
-                    "user_friendly": True
-                }
+                status_code=404,
+                detail="Course not found or is no longer available."
             )
 
         existing = (
@@ -117,12 +113,8 @@ def enroll_in_course(
         )
         if existing:
             raise HTTPException(
-                status_code=409, 
-                detail={
-                    "error": "ALREADY_ENROLLED",
-                    "message": "You are already enrolled in this course.",
-                    "user_friendly": True
-                }
+                status_code=409,
+                detail="You are already enrolled in this course."
             )
 
         now = datetime.now(timezone.utc)
@@ -150,11 +142,7 @@ def enroll_in_course(
         db.rollback()
         raise HTTPException(
             status_code=500,
-            detail={
-                "error": "ENROLLMENT_FAILED",
-                "message": "Unable to enroll in course. Please try again later.",
-                "user_friendly": True
-            }
+            detail="Unable to enroll in course. Please try again later."
         )
 
 
