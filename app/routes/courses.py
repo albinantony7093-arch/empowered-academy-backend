@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, timedelta, timezone
 import uuid
+import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_admin, require_page_admin
@@ -15,6 +16,7 @@ from app.utils.question_engine import generate_questions, evaluate_answers
 from app.utils.rank_service import calculate_rank_and_percentile
 from app.schemas.test import SubmitAnswersRequest
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 TRIAL_DAYS = 4
@@ -49,7 +51,19 @@ def _get_active_enrollment(course_id: str, user_id: str, db: Session) -> Enrollm
 @router.get("/", response_model=List[CourseOut])
 def list_courses(db: Session = Depends(get_db)):
     """Public — list all active courses."""
-    return db.query(Course).filter(Course.is_active == True).all()
+    try:
+        courses = db.query(Course).filter(Course.is_active == True).all()
+        return courses
+    except Exception as e:
+        logger.error(f"Failed to list courses: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "COURSES_FETCH_FAILED",
+                "message": "Unable to fetch courses. Please try again later.",
+                "user_friendly": True
+            }
+        )
 
 
 @router.post("/", response_model=CourseOut, status_code=201)
@@ -82,34 +96,64 @@ def enroll_in_course(
     Enroll in a course. Student gets a 4-day free trial.
     After trial expires the enrollment is locked until payment.
     """
-    course = db.query(Course).filter(Course.id == course_id, Course.is_active == True).first()
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
+    try:
+        course = db.query(Course).filter(Course.id == course_id, Course.is_active == True).first()
+        if not course:
+            raise HTTPException(
+                status_code=404, 
+                detail={
+                    "error": "COURSE_NOT_FOUND",
+                    "message": "Course not found or is no longer available.",
+                    "user_friendly": True
+                }
+            )
 
-    existing = (
-        db.query(Enrollment)
-        .filter(Enrollment.user_id == current_user.id, Enrollment.course_id == course_id)
-        .first()
-    )
-    if existing:
-        raise HTTPException(status_code=409, detail="Already enrolled in this course")
+        existing = (
+            db.query(Enrollment)
+            .filter(Enrollment.user_id == current_user.id, Enrollment.course_id == course_id)
+            .first()
+        )
+        if existing:
+            raise HTTPException(
+                status_code=409, 
+                detail={
+                    "error": "ALREADY_ENROLLED",
+                    "message": "You are already enrolled in this course.",
+                    "user_friendly": True
+                }
+            )
 
-    now = datetime.now(timezone.utc)
-    # Trial ends at end of day (23:59:59) on the 4th day from enrollment date.
-    # e.g. enroll May 4 → access through May 8 23:59:59 UTC
-    trial_end_date = (now + timedelta(days=TRIAL_DAYS)).replace(
-        hour=23, minute=59, second=59, microsecond=0
-    )
-    enrollment = Enrollment(
-        user_id=current_user.id,
-        course_id=course_id,
-        payment_status="trial",
-        trial_ends_at=trial_end_date,
-    )
-    db.add(enrollment)
-    db.commit()
-    db.refresh(enrollment)
-    return enrollment
+        now = datetime.now(timezone.utc)
+        # Trial ends at end of day (23:59:59) on the 4th day from enrollment date.
+        # e.g. enroll May 4 → access through May 8 23:59:59 UTC
+        trial_end_date = (now + timedelta(days=TRIAL_DAYS)).replace(
+            hour=23, minute=59, second=59, microsecond=0
+        )
+        enrollment = Enrollment(
+            user_id=current_user.id,
+            course_id=course_id,
+            payment_status="trial",
+            trial_ends_at=trial_end_date,
+        )
+        db.add(enrollment)
+        db.commit()
+        db.refresh(enrollment)
+        return enrollment
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions as they are already properly formatted
+        raise
+    except Exception as e:
+        logger.error(f"Failed to enroll user {current_user.id} in course {course_id}: {e}")
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "ENROLLMENT_FAILED",
+                "message": "Unable to enroll in course. Please try again later.",
+                "user_friendly": True
+            }
+        )
 
 
 @router.get("/my", response_model=List[MyCourseOut])
