@@ -21,6 +21,7 @@ class CourseOut(BaseModel):
     keypoints: Optional[List[str]]
     is_active: bool
     created_by: str
+    is_enrolled: Optional[bool] = None
 
     model_config = {"from_attributes": True}
 

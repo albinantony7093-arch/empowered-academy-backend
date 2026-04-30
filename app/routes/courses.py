@@ -6,7 +6,7 @@ import uuid
 import logging
 
 from app.core.database import get_db
-from app.core.security import get_current_user, require_admin, require_page_admin
+from app.core.security import get_current_user, require_admin, require_page_admin, get_current_user_optional
 from app.models.course import Course, Enrollment
 from app.models.test_attempt import TestAttempt, AttemptStatus
 from app.models.analytics import TestResult
@@ -51,11 +51,41 @@ def _get_active_enrollment(course_id: str, user_id: str, db: Session) -> Enrollm
 
 
 @router.get("/", response_model=List[CourseOut])
-def list_courses(db: Session = Depends(get_db)):
-    """Public — list all active courses."""
+def list_courses(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user_optional)
+):
+    """Public — list all active courses with enrollment status."""
     try:
+        logger.info(f"list_courses called - current_user: {current_user.id if current_user else 'None'}")
         courses = db.query(Course).filter(Course.is_active == True).all()
-        return courses
+        
+        # Get user's enrollments if authenticated
+        user_enrollments = set()
+        if current_user:
+            enrollments = db.query(Enrollment.course_id).filter(
+                Enrollment.user_id == current_user.id
+            ).all()
+            user_enrollments = {e.course_id for e in enrollments}
+            logger.info(f"User enrolled in {len(user_enrollments)} courses: {user_enrollments}")
+        
+        # Add enrollment status to each course
+        result = []
+        for course in courses:
+            course_dict = {
+                "id": course.id,
+                "title": course.title,
+                "description": course.description,
+                "exam": course.exam,
+                "price": float(course.price),
+                "keypoints": course.keypoints,
+                "is_active": course.is_active,
+                "created_by": course.created_by,
+                "is_enrolled": course.id in user_enrollments if current_user else None
+            }
+            result.append(course_dict)
+        
+        return result
     except Exception as e:
         logger.error(f"Failed to list courses: {e}")
         raise HTTPException(
