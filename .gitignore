@@ -53,8 +53,10 @@ alembic/versions/*.pyc
 __pycache__/
 *.pyc
 
-# Question generation scripts
+# Question generation scripts and documentation
 add_neet_pg_questions.py
 generate_neet_pg_questions.py
 generate_neet_ug_questions.py
 create_real_neet_ug_questions.py
+test_api_example.py
+README_TEST_GENERATION.md
