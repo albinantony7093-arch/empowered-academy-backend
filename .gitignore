@@ -60,3 +60,15 @@ generate_neet_ug_questions.py
 create_real_neet_ug_questions.py
 test_api_example.py
 README_TEST_GENERATION.md
+CLEANUP_SUMMARY.txt
+
+# Payment system documentation and test files (optional - keep if you want them in repo)
+PAYMENT_*.md
+START_HERE_PAYMENT.md
+WEBHOOK_SETUP_GUIDE.md
+AWS_WEBHOOK_SETUP.md
+payment_test_example.html
+update_course_prices.py
+update_course_prices.sql
+app/routes/payment_mock.py
+MOCK_PAYMENT_TESTING.md

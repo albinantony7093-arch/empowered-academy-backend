@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     MAIL_SERVER:   str = "smtp.gmail.com"
     MAIL_PORT:     int = 587
 
+    # Razorpay
+    RAZORPAY_KEY_ID: str = ""
+    RAZORPAY_KEY_SECRET: str = ""
+    RAZORPAY_WEBHOOK_SECRET: str = ""
+
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod
     def parse_allowed_origins(cls, v):

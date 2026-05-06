@@ -8,7 +8,7 @@ class CourseCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     description: Optional[str] = None
     exam: str = Field(default="UG", pattern="^(UG|PG)$")
-    price: Decimal = Field(default=Decimal("0"), ge=0)
+    price: Decimal = Field(default=Decimal("2000"), ge=0)
     keypoints: Optional[List[str]] = None
 
 
