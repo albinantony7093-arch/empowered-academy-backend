@@ -60,18 +60,32 @@ def list_courses(
         logger.info(f"list_courses called - current_user: {current_user.id if current_user else 'None'}")
         courses = db.query(Course).filter(Course.is_active == True).all()
         
-        # Get user's enrollments if authenticated
-        user_enrollments = set()
+        # Get user's enrollments with payment status if authenticated
+        enrollment_map = {}
         if current_user:
-            enrollments = db.query(Enrollment.course_id).filter(
+            enrollments = db.query(Enrollment).filter(
                 Enrollment.user_id == current_user.id
             ).all()
-            user_enrollments = {e.course_id for e in enrollments}
-            logger.info(f"User enrolled in {len(user_enrollments)} courses: {user_enrollments}")
+            
+            # Create map of course_id -> enrollment info
+            for e in enrollments:
+                enrollment_map[e.course_id] = {
+                    "is_enrolled": True,
+                    "payment_status": e.payment_status,
+                    "trial_ends_at": e.trial_ends_at.isoformat() if e.trial_ends_at else None
+                }
+            
+            logger.info(f"User enrolled in {len(enrollment_map)} courses")
         
-        # Add enrollment status to each course
+        # Add enrollment and payment status to each course
         result = []
         for course in courses:
+            enrollment_info = enrollment_map.get(course.id, {
+                "is_enrolled": False,
+                "payment_status": None,
+                "trial_ends_at": None
+            })
+            
             course_dict = {
                 "id": course.id,
                 "title": course.title,
@@ -81,7 +95,9 @@ def list_courses(
                 "keypoints": course.keypoints,
                 "is_active": course.is_active,
                 "created_by": course.created_by,
-                "is_enrolled": course.id in user_enrollments if current_user else None
+                "is_enrolled": enrollment_info["is_enrolled"] if current_user else None,
+                "payment_status": enrollment_info["payment_status"] if current_user else None,
+                "trial_ends_at": enrollment_info["trial_ends_at"] if current_user else None
             }
             result.append(course_dict)
         
