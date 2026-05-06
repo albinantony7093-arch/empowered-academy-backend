@@ -7,7 +7,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.core.config import settings
 from app.core.database import Base, engine
 from app.routes import auth, test, ai, courses as courses_router, profile as profile_router
-from app.routes import analytics as analytics_router
+from app.routes import analytics as analytics_router, payment as payment_router
 from app.middleware.logging import request_logging_middleware
 
 import signal
@@ -35,6 +35,7 @@ def _register_models() -> None:
     import app.models.response as _r; assert _r
     import app.models.otp as _o; assert _o
     import app.models.course as _c; assert _c
+    import app.models.payment as _p; assert _p
 
 
 _register_models()
@@ -55,7 +56,7 @@ except Exception as _e:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -118,6 +119,7 @@ app.include_router(analytics_router.router, prefix="/analytics", tags=["analytic
 app.include_router(ai.router,               prefix="/ai",        tags=["ai"])
 app.include_router(courses_router.router,   prefix="/courses",   tags=["courses"])
 app.include_router(profile_router.router,   prefix="/profile",   tags=["profile"])
+app.include_router(payment_router.router,   prefix="/payment",   tags=["payment"])
 
 
 @app.get("/health", tags=["ops"])
