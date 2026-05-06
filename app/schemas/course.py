@@ -22,6 +22,8 @@ class CourseOut(BaseModel):
     is_active: bool
     created_by: str
     is_enrolled: Optional[bool] = None
+    payment_status: Optional[str] = None  # trial | locked | paid | cancelled
+    trial_ends_at: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
