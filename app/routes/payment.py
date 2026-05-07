@@ -1,3 +1,4 @@
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
@@ -217,7 +218,12 @@ async def razorpay_webhook(
         raise HTTPException(status_code=400, detail="Missing webhook signature")
 
     body = await request.body()
-
+    logger.info("=" * 80)
+    logger.info("WEBHOOK RECEIVED")
+    logger.info(f"Headers: {dict(request.headers)}")
+    logger.info(f"Body: {body.decode()}")
+    logger.info("=" * 80)    
+    # Verify webhook signature
     try:
         razorpay_client.utility.verify_webhook_signature(
             body.decode(),
