@@ -5,6 +5,7 @@ import razorpay
 import hmac
 import hashlib
 import logging
+import json
 
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -22,8 +23,22 @@ from app.schemas.payment import (
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Initialize Razorpay client
 razorpay_client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+
+
+def _now():
+    return datetime.now(timezone.utc)
+
+
+def _extract_card_info(payment_entity: dict) -> dict:
+    """Pull card details from a Razorpay payment entity if present."""
+    card = payment_entity.get("card") or {}
+    return {
+        "card_network": card.get("network"),
+        "card_issuer": card.get("issuer"),
+        "card_last4": card.get("last4"),
+        "international": str(payment_entity.get("international", "")).lower() or None,
+    }
 
 
 @router.post("/create-order", response_model=CreatePaymentOrderResponse)
@@ -32,99 +47,82 @@ def create_payment_order(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """
-    Create a Razorpay order for course payment.
-    User must be enrolled with 'locked' status (trial expired).
-    """
-    # Check if course exists
+    """Create a Razorpay order for course payment."""
     course = db.query(Course).filter(
         Course.id == payload.course_id,
         Course.is_active == True
     ).first()
-    
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-    
-    # Check enrollment status
+
     enrollment = db.query(Enrollment).filter(
         Enrollment.user_id == current_user.id,
         Enrollment.course_id == payload.course_id
     ).first()
-    
     if not enrollment:
         raise HTTPException(
             status_code=403,
             detail="You must enroll in the course first to make a payment"
         )
-    
-    # Only allow payment if status is 'locked' (trial expired)
+
     if enrollment.payment_status == "paid":
-        raise HTTPException(
-            status_code=409,
-            detail="You have already paid for this course"
-        )
-    
+        raise HTTPException(status_code=409, detail="You have already paid for this course")
+
     if enrollment.payment_status not in ["locked", "trial"]:
         raise HTTPException(
             status_code=400,
             detail=f"Cannot process payment for enrollment with status: {enrollment.payment_status}"
         )
-    
-    # Check if there's already a pending payment
+
+    # Return existing pending order if one exists
     existing_payment = db.query(Payment).filter(
         Payment.enrollment_id == enrollment.id,
         Payment.status == "created"
     ).first()
-    
     if existing_payment:
-        # Return existing order
         return CreatePaymentOrderResponse(
             order_id=existing_payment.razorpay_order_id,
             amount=float(existing_payment.amount),
             currency=existing_payment.currency,
             razorpay_key_id=settings.RAZORPAY_KEY_ID
         )
-    
-    # Create Razorpay order
-    amount_in_paise = int(float(course.price) * 100)  # Convert to paise
-    
+
+    amount_in_paise = int(float(course.price) * 100)
+    receipt = f"c{course.id[:8]}_u{current_user.id[:8]}"
+    notes = {
+        "course_id": course.id,
+        "course_title": course.title,
+        "user_id": current_user.id,
+        "enrollment_id": enrollment.id,
+    }
+
     try:
-        # Create short receipt (max 40 chars) - use first 8 chars of IDs
-        receipt = f"c{course.id[:8]}_u{current_user.id[:8]}"
-        
         razorpay_order = razorpay_client.order.create({
             "amount": amount_in_paise,
             "currency": "INR",
             "receipt": receipt,
-            "notes": {
-                "course_id": course.id,
-                "course_title": course.title,
-                "user_id": current_user.id,
-                "enrollment_id": enrollment.id
-            }
+            "notes": notes,
         })
     except Exception as e:
         logger.error(f"Failed to create Razorpay order: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to create payment order. Please try again later."
-        )
-    
-    # Save payment record
+        raise HTTPException(status_code=500, detail="Failed to create payment order. Please try again later.")
+
     payment = Payment(
         user_id=current_user.id,
         course_id=course.id,
         enrollment_id=enrollment.id,
         razorpay_order_id=razorpay_order["id"],
         amount=course.price,
+        amount_due=razorpay_order.get("amount_due", 0) / 100,
         currency="INR",
-        status="created"
+        status="created",
+        receipt=receipt,
+        notes=notes,
     )
-    
     db.add(payment)
     db.commit()
     db.refresh(payment)
-    
+
     return CreatePaymentOrderResponse(
         order_id=razorpay_order["id"],
         amount=float(course.price),
@@ -139,55 +137,68 @@ def verify_payment(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """
-    Verify Razorpay payment signature and update enrollment status to 'paid'.
-    """
-    # Find payment record
+    """Verify Razorpay payment signature and update enrollment to paid."""
     payment = db.query(Payment).filter(
         Payment.razorpay_order_id == payload.razorpay_order_id,
         Payment.user_id == current_user.id
     ).first()
-    
     if not payment:
         raise HTTPException(status_code=404, detail="Payment record not found")
-    
+
     if payment.status == "paid":
         return VerifyPaymentResponse(
             success=True,
             message="Payment already verified",
             enrollment_id=payment.enrollment_id
         )
-    
-    # Verify signature
+
+    # Verify HMAC signature
     generated_signature = hmac.new(
         settings.RAZORPAY_KEY_SECRET.encode(),
         f"{payload.razorpay_order_id}|{payload.razorpay_payment_id}".encode(),
         hashlib.sha256
     ).hexdigest()
-    
+
     if generated_signature != payload.razorpay_signature:
         payment.status = "failed"
+        payment.error_code = "SIGNATURE_MISMATCH"
         payment.error_description = "Invalid payment signature"
+        payment.failed_at = _now()
         db.commit()
         raise HTTPException(status_code=400, detail="Invalid payment signature")
-    
-    # Update payment record
+
+    # Fetch full payment details from Razorpay
+    try:
+        rz_payment = razorpay_client.payment.fetch(payload.razorpay_payment_id)
+    except Exception as e:
+        logger.warning(f"Could not fetch payment details from Razorpay: {e}")
+        rz_payment = {}
+
+    card_info = _extract_card_info(rz_payment)
+
     payment.razorpay_payment_id = payload.razorpay_payment_id
     payment.razorpay_signature = payload.razorpay_signature
     payment.status = "paid"
-    
-    # Update enrollment status
-    enrollment = db.query(Enrollment).filter(
-        Enrollment.id == payment.enrollment_id
-    ).first()
-    
+    payment.paid_at = _now()
+    payment.payment_method = rz_payment.get("method")
+    payment.bank = rz_payment.get("bank")
+    payment.wallet = rz_payment.get("wallet")
+    payment.vpa = rz_payment.get("vpa")
+    payment.card_network = card_info["card_network"]
+    payment.card_issuer = card_info["card_issuer"]
+    payment.card_last4 = card_info["card_last4"]
+    payment.international = card_info["international"]
+    payment.contact = rz_payment.get("contact")
+    payment.email = rz_payment.get("email")
+    payment.amount_paid = rz_payment.get("amount", 0) / 100 if rz_payment.get("amount") else None
+
+    enrollment = db.query(Enrollment).filter(Enrollment.id == payment.enrollment_id).first()
     if enrollment:
         enrollment.payment_status = "paid"
-    
+
     db.commit()
-    
-    logger.info(f"Payment verified successfully for order {payload.razorpay_order_id}")
-    
+    logger.info(f"Payment verified: order={payload.razorpay_order_id} payment={payload.razorpay_payment_id}")
+
     return VerifyPaymentResponse(
         success=True,
         message="Payment verified successfully",
@@ -200,20 +211,13 @@ async def razorpay_webhook(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    """
-    Handle Razorpay webhook events.
-    Verify webhook signature and process payment events.
-    """
-    # Get webhook signature from headers
+    """Handle Razorpay webhook events."""
     webhook_signature = request.headers.get("X-Razorpay-Signature")
-    
     if not webhook_signature:
         raise HTTPException(status_code=400, detail="Missing webhook signature")
-    
-    # Get request body
+
     body = await request.body()
-    
-    # Verify webhook signature
+
     try:
         razorpay_client.utility.verify_webhook_signature(
             body.decode(),
@@ -223,149 +227,149 @@ async def razorpay_webhook(
     except razorpay.errors.SignatureVerificationError:
         logger.error("Invalid webhook signature")
         raise HTTPException(status_code=400, detail="Invalid webhook signature")
-    
-    # Parse webhook data
-    import json
+
     webhook_data = json.loads(body.decode())
-    
     event = webhook_data.get("event")
-    payload_data = webhook_data.get("payload", {}).get("payment", {}).get("entity", {})
-    
-    logger.info(f"Received webhook event: {event}")
-    
-    # Handle payment.captured event
+    payment_entity = webhook_data.get("payload", {}).get("payment", {}).get("entity", {})
+    dispute_entity = webhook_data.get("payload", {}).get("dispute", {}).get("entity", {})
+
+    logger.info(f"Webhook received: {event}")
+
+    # ── payment.captured ──────────────────────────────────────────────────────
     if event == "payment.captured":
-        order_id = payload_data.get("order_id")
-        payment_id = payload_data.get("id")
-        
-        payment = db.query(Payment).filter(
-            Payment.razorpay_order_id == order_id
-        ).first()
-        
-        if payment and payment.status == "created":
+        order_id = payment_entity.get("order_id")
+        payment_id = payment_entity.get("id")
+
+        payment = db.query(Payment).filter(Payment.razorpay_order_id == order_id).first()
+        if payment and payment.status != "paid":
+            card_info = _extract_card_info(payment_entity)
             payment.razorpay_payment_id = payment_id
             payment.status = "paid"
-            payment.payment_method = payload_data.get("method")
-            
-            # Update enrollment
-            enrollment = db.query(Enrollment).filter(
-                Enrollment.id == payment.enrollment_id
-            ).first()
-            
+            payment.paid_at = _now()
+            payment.payment_method = payment_entity.get("method")
+            payment.bank = payment_entity.get("bank")
+            payment.wallet = payment_entity.get("wallet")
+            payment.vpa = payment_entity.get("vpa")
+            payment.card_network = card_info["card_network"]
+            payment.card_issuer = card_info["card_issuer"]
+            payment.card_last4 = card_info["card_last4"]
+            payment.international = card_info["international"]
+            payment.contact = payment_entity.get("contact")
+            payment.email = payment_entity.get("email")
+            payment.amount_paid = payment_entity.get("amount", 0) / 100
+            payment.webhook_payload = webhook_data
+
+            enrollment = db.query(Enrollment).filter(Enrollment.id == payment.enrollment_id).first()
             if enrollment:
                 enrollment.payment_status = "paid"
-            
+
             db.commit()
-            logger.info(f"Payment {payment_id} marked as paid via webhook")
-    
-    # Handle payment.failed event
+            logger.info(f"payment.captured: {payment_id}")
+
+    # ── payment.failed ────────────────────────────────────────────────────────
     elif event == "payment.failed":
-        order_id = payload_data.get("order_id")
-        payment_id = payload_data.get("id")
-        error_description = payload_data.get("error_description", "Payment failed")
-        
-        payment = db.query(Payment).filter(
-            Payment.razorpay_order_id == order_id
-        ).first()
-        
+        order_id = payment_entity.get("order_id")
+        payment_id = payment_entity.get("id")
+        error_data = payment_entity.get("error", {})
+
+        payment = db.query(Payment).filter(Payment.razorpay_order_id == order_id).first()
         if payment:
             payment.razorpay_payment_id = payment_id
             payment.status = "failed"
-            payment.error_description = error_description
+            payment.failed_at = _now()
+            payment.error_code = error_data.get("code") or payment_entity.get("error_code")
+            payment.error_description = error_data.get("description") or payment_entity.get("error_description")
+            payment.error_source = error_data.get("source") or payment_entity.get("error_source")
+            payment.error_step = error_data.get("step") or payment_entity.get("error_step")
+            payment.error_reason = error_data.get("reason") or payment_entity.get("error_reason")
+            payment.payment_method = payment_entity.get("method")
+            payment.contact = payment_entity.get("contact")
+            payment.email = payment_entity.get("email")
+            payment.webhook_payload = webhook_data
             db.commit()
-            logger.info(f"Payment {payment_id} marked as failed via webhook")
-    
-    # Handle payment.dispute.created event
+            logger.info(f"payment.failed: {payment_id} reason={payment.error_description}")
+
+    # ── payment.dispute.created ───────────────────────────────────────────────
     elif event == "payment.dispute.created":
-        payment_id = payload_data.get("id")
-        dispute_id = webhook_data.get("payload", {}).get("dispute", {}).get("entity", {}).get("id")
-        dispute_amount = webhook_data.get("payload", {}).get("dispute", {}).get("entity", {}).get("amount", 0)
-        dispute_reason = webhook_data.get("payload", {}).get("dispute", {}).get("entity", {}).get("reason_description", "Dispute raised")
-        
-        payment = db.query(Payment).filter(
-            Payment.razorpay_payment_id == payment_id
-        ).first()
-        
+        payment_id = payment_entity.get("id")
+        payment = db.query(Payment).filter(Payment.razorpay_payment_id == payment_id).first()
         if payment:
-            # Mark payment as disputed
             payment.status = "disputed"
-            payment.error_description = f"Dispute created: {dispute_reason} (Dispute ID: {dispute_id})"
-            
-            # Lock enrollment until dispute is resolved
-            enrollment = db.query(Enrollment).filter(
-                Enrollment.id == payment.enrollment_id
-            ).first()
-            
+            payment.dispute_id = dispute_entity.get("id")
+            payment.dispute_reason = dispute_entity.get("reason_description") or dispute_entity.get("reason")
+            payment.dispute_amount = dispute_entity.get("amount", 0) / 100
+            payment.error_description = f"Dispute created: {payment.dispute_reason} (ID: {payment.dispute_id})"
+            payment.webhook_payload = webhook_data
+
+            enrollment = db.query(Enrollment).filter(Enrollment.id == payment.enrollment_id).first()
             if enrollment and enrollment.payment_status == "paid":
                 enrollment.payment_status = "locked"
-            
+
             db.commit()
-            logger.warning(f"Dispute created for payment {payment_id}: {dispute_reason}")
-    
-    # Handle payment.dispute.action_required event
+            logger.warning(f"payment.dispute.created: {payment_id} dispute={payment.dispute_id}")
+
+    # ── payment.dispute.action_required ──────────────────────────────────────
     elif event == "payment.dispute.action_required":
-        payment_id = payload_data.get("id")
-        dispute_id = webhook_data.get("payload", {}).get("dispute", {}).get("entity", {}).get("id")
-        
-        payment = db.query(Payment).filter(
-            Payment.razorpay_payment_id == payment_id
-        ).first()
-        
+        payment_id = payment_entity.get("id")
+        payment = db.query(Payment).filter(Payment.razorpay_payment_id == payment_id).first()
         if payment:
-            payment.error_description = f"Dispute action required (Dispute ID: {dispute_id})"
+            payment.dispute_id = dispute_entity.get("id") or payment.dispute_id
+            payment.error_description = f"Dispute action required (ID: {payment.dispute_id})"
+            payment.webhook_payload = webhook_data
             db.commit()
-            logger.warning(f"Action required for dispute on payment {payment_id}")
-    
-    # Handle payment.dispute.won event
+            logger.warning(f"payment.dispute.action_required: {payment_id}")
+
+    # ── payment.dispute.won ───────────────────────────────────────────────────
     elif event == "payment.dispute.won":
-        payment_id = payload_data.get("id")
-        dispute_id = webhook_data.get("payload", {}).get("dispute", {}).get("entity", {}).get("id")
-        
-        payment = db.query(Payment).filter(
-            Payment.razorpay_payment_id == payment_id
-        ).first()
-        
+        payment_id = payment_entity.get("id")
+        payment = db.query(Payment).filter(Payment.razorpay_payment_id == payment_id).first()
         if payment:
-            # Restore payment to paid status
             payment.status = "paid"
-            payment.error_description = f"Dispute won (Dispute ID: {dispute_id})"
-            
-            # Restore enrollment access
-            enrollment = db.query(Enrollment).filter(
-                Enrollment.id == payment.enrollment_id
-            ).first()
-            
+            payment.dispute_id = dispute_entity.get("id") or payment.dispute_id
+            payment.error_description = f"Dispute won (ID: {payment.dispute_id})"
+            payment.webhook_payload = webhook_data
+
+            enrollment = db.query(Enrollment).filter(Enrollment.id == payment.enrollment_id).first()
             if enrollment:
                 enrollment.payment_status = "paid"
-            
+
             db.commit()
-            logger.info(f"Dispute won for payment {payment_id}, access restored")
-    
-    # Handle payment.dispute.lost event
+            logger.info(f"payment.dispute.won: {payment_id}")
+
+    # ── payment.dispute.lost ──────────────────────────────────────────────────
     elif event == "payment.dispute.lost":
-        payment_id = payload_data.get("id")
-        dispute_id = webhook_data.get("payload", {}).get("dispute", {}).get("entity", {}).get("id")
-        
-        payment = db.query(Payment).filter(
-            Payment.razorpay_payment_id == payment_id
-        ).first()
-        
+        payment_id = payment_entity.get("id")
+        payment = db.query(Payment).filter(Payment.razorpay_payment_id == payment_id).first()
         if payment:
-            # Mark payment as refunded (money returned to customer)
             payment.status = "refunded"
-            payment.error_description = f"Dispute lost (Dispute ID: {dispute_id})"
-            
-            # Lock enrollment permanently
-            enrollment = db.query(Enrollment).filter(
-                Enrollment.id == payment.enrollment_id
-            ).first()
-            
+            payment.refunded_at = _now()
+            payment.dispute_id = dispute_entity.get("id") or payment.dispute_id
+            payment.error_description = f"Dispute lost (ID: {payment.dispute_id})"
+            payment.webhook_payload = webhook_data
+
+            enrollment = db.query(Enrollment).filter(Enrollment.id == payment.enrollment_id).first()
             if enrollment:
                 enrollment.payment_status = "cancelled"
-            
+
             db.commit()
-            logger.warning(f"Dispute lost for payment {payment_id}, enrollment cancelled")
-    
+            logger.warning(f"payment.dispute.lost: {payment_id}")
+
+    # ── refund.processed ──────────────────────────────────────────────────────
+    elif event == "refund.processed":
+        refund_entity = webhook_data.get("payload", {}).get("refund", {}).get("entity", {})
+        payment_id = refund_entity.get("payment_id")
+        payment = db.query(Payment).filter(Payment.razorpay_payment_id == payment_id).first()
+        if payment:
+            payment.status = "refunded"
+            payment.refunded_at = _now()
+            payment.error_description = f"Refund processed: {refund_entity.get('id')}"
+            payment.webhook_payload = webhook_data
+            db.commit()
+            logger.info(f"refund.processed for payment {payment_id}")
+
+    else:
+        logger.info(f"Unhandled webhook event: {event}")
+
     return {"status": "ok"}
 
 
@@ -378,5 +382,4 @@ def get_payment_history(
     payments = db.query(Payment).filter(
         Payment.user_id == current_user.id
     ).order_by(Payment.created_at.desc()).all()
-    
     return payments
