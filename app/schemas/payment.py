@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any, Dict
 
 
 class CreatePaymentOrderRequest(BaseModel):
@@ -31,14 +31,55 @@ class PaymentOut(BaseModel):
     user_id: str
     course_id: str
     enrollment_id: str
+
+    # Razorpay IDs
     razorpay_order_id: str
-    razorpay_payment_id: Optional[str]
+    razorpay_payment_id: Optional[str] = None
+    razorpay_signature: Optional[str] = None
+
+    # Amount
     amount: float
+    amount_due: Optional[float] = None
+    amount_paid: Optional[float] = None
     currency: str
+
+    # Status & method
     status: str
-    payment_method: Optional[str]
+    payment_method: Optional[str] = None
+    bank: Optional[str] = None
+    wallet: Optional[str] = None
+    vpa: Optional[str] = None
+    card_network: Optional[str] = None
+    card_issuer: Optional[str] = None
+    card_last4: Optional[str] = None
+    international: Optional[str] = None
+
+    # Customer
+    contact: Optional[str] = None
+    email: Optional[str] = None
+
+    # Error
+    error_code: Optional[str] = None
+    error_description: Optional[str] = None
+    error_source: Optional[str] = None
+    error_step: Optional[str] = None
+    error_reason: Optional[str] = None
+
+    # Dispute
+    dispute_id: Optional[str] = None
+    dispute_reason: Optional[str] = None
+    dispute_amount: Optional[float] = None
+
+    # Receipt & notes
+    receipt: Optional[str] = None
+    notes: Optional[Dict[str, Any]] = None
+
+    # Timestamps
     created_at: datetime
     updated_at: datetime
+    paid_at: Optional[datetime] = None
+    failed_at: Optional[datetime] = None
+    refunded_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

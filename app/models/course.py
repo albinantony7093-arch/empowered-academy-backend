@@ -10,10 +10,12 @@ class Course(Base):
     id = Column(String, primary_key=True, index=True, default=lambda: str(uuid7()))
     title = Column(String, nullable=False)
     description = Column(Text)
+    detailed_description = Column(Text, nullable=True)
     exam = Column(String, nullable=False, default="UG")  # "UG" or "PG"
     price = Column(Numeric(10, 2), nullable=False, default=0)
     keypoints = Column(JSON, nullable=True)  # List of key features
     is_active = Column(Boolean, nullable=False, default=True)
+    is_flagship = Column(Boolean, nullable=False, default=False)
     created_by = Column(String, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
