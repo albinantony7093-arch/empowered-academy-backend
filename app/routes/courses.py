@@ -42,8 +42,19 @@ def _get_active_enrollment(course_id: str, user_id: str, db: Session) -> Enrollm
             enrollment.payment_status = "locked"
             db.commit()
 
+    # pending_payment with active trial window → still allow access
+    if enrollment.payment_status == "pending_payment" and enrollment.trial_ends_at:
+        if datetime.now(timezone.utc) <= enrollment.trial_ends_at:
+            return enrollment  # trial window still open, allow access
+        else:
+            # trial window expired and payment not done → lock
+            enrollment.payment_status = "locked"
+            db.commit()
+
     if enrollment.payment_status == "locked":
         raise HTTPException(status_code=403, detail="Trial expired. Please pay to continue.")
+    if enrollment.payment_status == "pending_payment":
+        raise HTTPException(status_code=403, detail="Payment pending. Please complete your purchase to access this course.")
     if enrollment.payment_status == "cancelled":
         raise HTTPException(status_code=403, detail="Enrollment cancelled.")
 
@@ -67,8 +78,10 @@ def list_courses(
                 Enrollment.user_id == current_user.id
             ).all()
             
-            # Create map of course_id -> enrollment info
+            # Create map of course_id -> enrollment info (exclude pending_payment)
             for e in enrollments:
+                if e.payment_status == "pending_payment":
+                    continue
                 enrollment_map[e.course_id] = {
                     "is_enrolled": True,
                     "payment_status": e.payment_status,
@@ -202,7 +215,10 @@ def my_enrollments(
     """List current user's enrollments with course details. Syncs expired trials to 'locked' on the fly."""
     enrollments = (
         db.query(Enrollment)
-        .filter(Enrollment.user_id == current_user.id)
+        .filter(
+            Enrollment.user_id == current_user.id,
+            Enrollment.payment_status != "pending_payment"
+        )
         .all()
     )
     now = datetime.now(timezone.utc)
@@ -327,8 +343,9 @@ def submit_course_test(
         raise HTTPException(status_code=409, detail="Test already submitted")
 
     # Validate enrollment using course_id from the attempt
-    if attempt.course_id:
-        _get_active_enrollment(attempt.course_id, user_id=current_user.id, db=db)
+    if not attempt.course_id:
+        raise HTTPException(status_code=400, detail="Invalid test attempt")
+    _get_active_enrollment(attempt.course_id, user_id=current_user.id, db=db)
 
     result = evaluate_answers(attempt.exam, payload.answers)
 

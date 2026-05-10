@@ -26,7 +26,7 @@ class Enrollment(Base):
     id = Column(String, primary_key=True, index=True, default=lambda: str(uuid7()))
     user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
     course_id = Column(String, ForeignKey("courses.id"), nullable=False, index=True)
-    # "trial" | "paid" | "locked" | "cancelled"
+    # "trial" | "paid" | "locked" | "cancelled" | "pending_payment"
     payment_status = Column(String, nullable=False, default="trial")
     trial_ends_at = Column(DateTime(timezone=True), nullable=True)  # enrolled_at + 4 days
     enrolled_at = Column(DateTime(timezone=True), server_default=func.now())
