@@ -5,6 +5,10 @@ from typing import Optional, Any, Dict
 
 class CreatePaymentOrderRequest(BaseModel):
     course_id: str = Field(..., description="Course ID to purchase")
+    direct_purchase: bool = Field(
+        default=False,
+        description="If True, pay directly without a trial enrollment first"
+    )
 
 
 class CreatePaymentOrderResponse(BaseModel):

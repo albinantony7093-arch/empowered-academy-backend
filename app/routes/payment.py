@@ -1,7 +1,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import razorpay
 import hmac
 import hashlib
@@ -23,6 +23,8 @@ from app.schemas.payment import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+TRIAL_DAYS = 4
 
 razorpay_client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
 
@@ -48,7 +50,14 @@ def create_payment_order(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Create a Razorpay order for course payment."""
+    """
+    Create a Razorpay order for course payment.
+
+    Two flows:
+    - direct_purchase=True  → pay without a trial; enrollment is created as "pending_payment"
+                              and upgraded to "paid" on successful payment.
+    - direct_purchase=False → student must already have a trial/locked enrollment.
+    """
     course = db.query(Course).filter(
         Course.id == payload.course_id,
         Course.is_active == True
@@ -60,20 +69,41 @@ def create_payment_order(
         Enrollment.user_id == current_user.id,
         Enrollment.course_id == payload.course_id
     ).first()
-    if not enrollment:
-        raise HTTPException(
-            status_code=403,
-            detail="You must enroll in the course first to make a payment"
-        )
 
-    if enrollment.payment_status == "paid":
+    # ── Already paid ──────────────────────────────────────────────────────────
+    if enrollment and enrollment.payment_status == "paid":
         raise HTTPException(status_code=409, detail="You have already paid for this course")
 
-    if enrollment.payment_status not in ["locked", "trial"]:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot process payment for enrollment with status: {enrollment.payment_status}"
-        )
+    # ── Direct purchase: create a placeholder enrollment if needed ────────────
+    if payload.direct_purchase:
+        if not enrollment:
+            # Brand new direct purchase — no trial access, blocked until payment completes
+            enrollment = Enrollment(
+                user_id=current_user.id,
+                course_id=course.id,
+                payment_status="pending_payment",
+                trial_ends_at=None,
+            )
+            db.add(enrollment)
+            db.flush()
+        elif enrollment.payment_status not in ["pending_payment", "locked", "trial"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot process payment for enrollment with status: {enrollment.payment_status}"
+            )
+        # If they already have a trial enrollment, keep it as-is — trial expiry governs access
+    else:
+        # ── Trial flow: enrollment must already exist ─────────────────────────
+        if not enrollment:
+            raise HTTPException(
+                status_code=403,
+                detail="Please enroll in the course first to start your free trial, or use direct purchase."
+            )
+        if enrollment.payment_status not in ["locked", "trial"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot process payment for enrollment with status: {enrollment.payment_status}"
+            )
 
     # Return existing pending order if one exists
     existing_payment = db.query(Payment).filter(
@@ -81,6 +111,7 @@ def create_payment_order(
         Payment.status == "created"
     ).first()
     if existing_payment:
+        db.commit()  # commit the enrollment if it was just created
         return CreatePaymentOrderResponse(
             order_id=existing_payment.razorpay_order_id,
             amount=float(existing_payment.amount),
@@ -95,6 +126,7 @@ def create_payment_order(
         "course_title": course.title,
         "user_id": current_user.id,
         "enrollment_id": enrollment.id,
+        "direct_purchase": str(payload.direct_purchase),
     }
 
     try:
@@ -106,6 +138,7 @@ def create_payment_order(
         })
     except Exception as e:
         logger.error(f"Failed to create Razorpay order: {e}")
+        db.rollback()
         raise HTTPException(status_code=500, detail="Failed to create payment order. Please try again later.")
 
     payment = Payment(
@@ -196,6 +229,7 @@ def verify_payment(
     enrollment = db.query(Enrollment).filter(Enrollment.id == payment.enrollment_id).first()
     if enrollment:
         enrollment.payment_status = "paid"
+        enrollment.trial_ends_at = None  # clear trial timer if it was a trial enrollment
 
     db.commit()
     logger.info(f"Payment verified: order={payload.razorpay_order_id} payment={payload.razorpay_payment_id}")
@@ -268,6 +302,7 @@ async def razorpay_webhook(
             enrollment = db.query(Enrollment).filter(Enrollment.id == payment.enrollment_id).first()
             if enrollment:
                 enrollment.payment_status = "paid"
+                enrollment.trial_ends_at = None
 
             db.commit()
             logger.info(f"payment.captured: {payment_id}")
@@ -322,8 +357,14 @@ async def razorpay_webhook(
             payment.dispute_id = dispute_entity.get("id") or payment.dispute_id
             payment.error_description = f"Dispute action required (ID: {payment.dispute_id})"
             payment.webhook_payload = webhook_data
+
+            # Lock enrollment in case dispute.created was missed
+            enrollment = db.query(Enrollment).filter(Enrollment.id == payment.enrollment_id).first()
+            if enrollment and enrollment.payment_status == "paid":
+                enrollment.payment_status = "locked"
+
             db.commit()
-            logger.warning(f"payment.dispute.action_required: {payment_id}")
+            logger.warning(f"payment.dispute.action_required: {payment_id} — enrollment locked as precaution")
 
     # ── payment.dispute.won ───────────────────────────────────────────────────
     elif event == "payment.dispute.won":
@@ -370,8 +411,13 @@ async def razorpay_webhook(
             payment.refunded_at = _now()
             payment.error_description = f"Refund processed: {refund_entity.get('id')}"
             payment.webhook_payload = webhook_data
+
+            enrollment = db.query(Enrollment).filter(Enrollment.id == payment.enrollment_id).first()
+            if enrollment and enrollment.payment_status == "paid":
+                enrollment.payment_status = "cancelled"
+
             db.commit()
-            logger.info(f"refund.processed for payment {payment_id}")
+            logger.warning(f"refund.processed for payment {payment_id} — enrollment access revoked")
 
     else:
         logger.info(f"Unhandled webhook event: {event}")
