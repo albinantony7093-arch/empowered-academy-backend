@@ -42,15 +42,6 @@ def _get_active_enrollment(course_id: str, user_id: str, db: Session) -> Enrollm
             enrollment.payment_status = "locked"
             db.commit()
 
-    # pending_payment with active trial window → still allow access
-    if enrollment.payment_status == "pending_payment" and enrollment.trial_ends_at:
-        if datetime.now(timezone.utc) <= enrollment.trial_ends_at:
-            return enrollment  # trial window still open, allow access
-        else:
-            # trial window expired and payment not done → lock
-            enrollment.payment_status = "locked"
-            db.commit()
-
     if enrollment.payment_status == "locked":
         raise HTTPException(status_code=403, detail="Trial expired. Please pay to continue.")
     if enrollment.payment_status == "pending_payment":
@@ -173,6 +164,17 @@ def enroll_in_course(
             .first()
         )
         if existing:
+            # Allow switching from pending_payment to trial ONLY if they never had a trial
+            if existing.payment_status == "pending_payment" and existing.trial_ends_at is None:
+                now = datetime.now(timezone.utc)
+                trial_end_date = (now + timedelta(days=TRIAL_DAYS)).replace(
+                    hour=23, minute=59, second=59, microsecond=0
+                )
+                existing.payment_status = "trial"
+                existing.trial_ends_at = trial_end_date
+                db.commit()
+                db.refresh(existing)
+                return existing
             raise HTTPException(
                 status_code=409,
                 detail="You are already enrolled in this course."

@@ -77,16 +77,12 @@ def create_payment_order(
     # ── Direct purchase: create a placeholder enrollment if needed ────────────
     if payload.direct_purchase:
         if not enrollment:
-            # Brand new — no trial, just waiting for payment
-            now = datetime.now(timezone.utc)
-            trial_end_date = (now + timedelta(days=TRIAL_DAYS)).replace(
-                hour=23, minute=59, second=59, microsecond=0
-            )
+            # Brand new direct purchase — no trial access, blocked until payment completes
             enrollment = Enrollment(
                 user_id=current_user.id,
                 course_id=course.id,
                 payment_status="pending_payment",
-                trial_ends_at=trial_end_date,  # 4-day window to complete payment
+                trial_ends_at=None,
             )
             db.add(enrollment)
             db.flush()
