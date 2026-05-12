@@ -39,7 +39,6 @@ class PaymentOut(BaseModel):
     # Razorpay IDs
     razorpay_order_id: str
     razorpay_payment_id: Optional[str] = None
-    razorpay_signature: Optional[str] = None
 
     # Amount
     amount: float
@@ -76,7 +75,6 @@ class PaymentOut(BaseModel):
 
     # Receipt & notes
     receipt: Optional[str] = None
-    notes: Optional[Dict[str, Any]] = None
 
     # Timestamps
     created_at: datetime

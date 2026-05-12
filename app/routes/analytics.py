@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.core.security import verify_token
+from app.core.security import get_current_user
 from app.models.analytics import TestResult
 from app.models.response import Response
 from app.models.test_attempt import TestAttempt
@@ -18,9 +18,10 @@ router = APIRouter()
 @router.get("/dashboard")
 def get_dashboard(
     course_id: str,
-    user_id: str = Depends(verify_token),
+    current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    user_id = current_user.id
     """
     Returns dashboard data filtered by course_id.
     """

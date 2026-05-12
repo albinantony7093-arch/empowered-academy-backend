@@ -154,7 +154,7 @@ async def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(
     """Send a password-reset OTP to the given email (silent if user not found)."""
     user = db.query(User).filter(User.email == payload.email).first()
     if not user:
-        raise HTTPException(status_code=404, detail="Email not registered")
+        return {"message": "If this email is registered, an OTP has been sent."}
 
     otp        = _generate_otp()
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=OTP_EXPIRY_MINUTES)
@@ -175,7 +175,7 @@ async def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(
         logger.error(f"Failed to send reset OTP to {payload.email}: {e}")
         raise HTTPException(status_code=503, detail="Failed to send OTP email. Try again.")
 
-    return {"message": "OTP has been sent to your email."}
+    return {"message": "If this email is registered, an OTP has been sent."}
 
 
 # ── Reset Password ────────────────────────────────────────────────────────────
