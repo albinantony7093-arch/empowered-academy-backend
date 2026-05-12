@@ -8,6 +8,7 @@ import logging
 from app.core.database import get_db
 from app.core.security import get_current_user, require_admin, require_page_admin, get_current_user_optional
 from app.models.course import Course, Enrollment
+from app.utils.mail import send_trial_enrollment_email
 from app.models.test_attempt import TestAttempt, AttemptStatus
 from app.models.analytics import TestResult
 from app.models.response import Response
@@ -34,7 +35,7 @@ def _get_active_enrollment(course_id: str, user_id: str, db: Session) -> Enrollm
         .first()
     )
     if not enrollment:
-        raise HTTPException(status_code=403, detail="Not enrolled in this course")
+        raise HTTPException(status_code=500, detail="Not enrolled in this course")
 
     # Sync trial → locked if expired
     if enrollment.payment_status == "trial" and enrollment.trial_ends_at:
@@ -43,11 +44,11 @@ def _get_active_enrollment(course_id: str, user_id: str, db: Session) -> Enrollm
             db.commit()
 
     if enrollment.payment_status == "locked":
-        raise HTTPException(status_code=403, detail="Trial expired. Please pay to continue.")
+        raise HTTPException(status_code=500, detail="Trial expired. Please pay to continue.")
     if enrollment.payment_status == "pending_payment":
-        raise HTTPException(status_code=403, detail="Payment pending. Please complete your purchase to access this course.")
+        raise HTTPException(status_code=500, detail="Payment pending. Please complete your purchase to access this course.")
     if enrollment.payment_status == "cancelled":
-        raise HTTPException(status_code=403, detail="Enrollment cancelled.")
+        raise HTTPException(status_code=500, detail="Enrollment cancelled.")
 
     return enrollment
 
@@ -174,6 +175,14 @@ def enroll_in_course(
                 existing.trial_ends_at = trial_end_date
                 db.commit()
                 db.refresh(existing)
+                try:
+                    import asyncio
+                    trial_end_str = trial_end_date.strftime("%B %d, %Y")
+                    asyncio.run(
+                        send_trial_enrollment_email(current_user.email, current_user.full_name or "", course.title, trial_end_str)
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to send trial enrollment email: {e}")
                 return existing
             raise HTTPException(
                 status_code=409,
@@ -195,6 +204,14 @@ def enroll_in_course(
         db.add(enrollment)
         db.commit()
         db.refresh(enrollment)
+        try:
+            import asyncio
+            trial_end_str = trial_end_date.strftime("%B %d, %Y")
+            asyncio.run(
+                send_trial_enrollment_email(current_user.email, current_user.full_name or "", course.title, trial_end_str)
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send trial enrollment email: {e}")
         return enrollment
         
     except HTTPException:

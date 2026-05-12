@@ -13,6 +13,8 @@ from app.core.security import get_current_user
 from app.core.config import settings
 from app.models.payment import Payment
 from app.models.course import Course, Enrollment
+from app.models.user import User
+from app.utils.mail import send_enrollment_confirmation_email
 from app.schemas.payment import (
     CreatePaymentOrderRequest,
     CreatePaymentOrderResponse,
@@ -96,7 +98,7 @@ def create_payment_order(
         # ── Trial flow: enrollment must already exist ─────────────────────────
         if not enrollment:
             raise HTTPException(
-                status_code=403,
+                status_code=500,
                 detail="Please enroll in the course first to start your free trial, or use direct purchase."
             )
         if enrollment.payment_status not in ["locked", "trial"]:
@@ -234,6 +236,18 @@ def verify_payment(
     db.commit()
     logger.info(f"Payment verified: order={payload.razorpay_order_id} payment={payload.razorpay_payment_id}")
 
+    # Send enrollment confirmation email
+    try:
+        user = db.query(User).filter(User.id == current_user.id).first()
+        course = db.query(Course).filter(Course.id == payment.course_id).first()
+        if user and course:
+            import asyncio
+            asyncio.run(
+                send_enrollment_confirmation_email(user.email, user.full_name or "", course.title)
+            )
+    except Exception as e:
+        logger.warning(f"Failed to send enrollment email: {e}")
+
     return VerifyPaymentResponse(
         success=True,
         message="Payment verified successfully",
@@ -306,6 +320,18 @@ async def razorpay_webhook(
 
             db.commit()
             logger.info(f"payment.captured: {payment_id}")
+
+            # Send enrollment confirmation email
+            try:
+                user = db.query(User).filter(User.id == payment.user_id).first()
+                course = db.query(Course).filter(Course.id == payment.course_id).first()
+                if user and course:
+                    import asyncio
+                    asyncio.create_task(
+                        send_enrollment_confirmation_email(user.email, user.full_name or "", course.title)
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to send enrollment email (webhook): {e}")
 
     # ── payment.failed ────────────────────────────────────────────────────────
     elif event == "payment.failed":
