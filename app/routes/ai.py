@@ -1,8 +1,10 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from app.core.security import verify_token
+from app.core.security import get_current_user
 from app.core.config import settings
+from app.core.database import get_db
+from sqlalchemy.orm import Session
 import openai
 
 logger = logging.getLogger(__name__)
@@ -19,7 +21,8 @@ class MentorRequest(BaseModel):
     topic: str
 
 @router.post("/mentor")
-def ai_mentor(payload: MentorRequest, user_id: str = Depends(verify_token)):
+def ai_mentor(payload: MentorRequest, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    user_id = current_user.id
     if not payload.topic or not payload.topic.strip():
         raise HTTPException(status_code=400, detail="Topic must not be empty")
 

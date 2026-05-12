@@ -266,11 +266,7 @@ async def razorpay_webhook(
         raise HTTPException(status_code=400, detail="Missing webhook signature")
 
     body = await request.body()
-    logger.info("=" * 80)
-    logger.info("WEBHOOK RECEIVED")
-    logger.info(f"Headers: {dict(request.headers)}")
-    logger.info(f"Body: {body.decode()}")
-    logger.info("=" * 80)    
+
     # Verify webhook signature
     try:
         razorpay_client.utility.verify_webhook_signature(
@@ -279,15 +275,12 @@ async def razorpay_webhook(
             settings.RAZORPAY_WEBHOOK_SECRET
         )
     except razorpay.errors.SignatureVerificationError:
-        logger.error("Invalid webhook signature")
         raise HTTPException(status_code=400, detail="Invalid webhook signature")
 
     webhook_data = json.loads(body.decode())
     event = webhook_data.get("event")
     payment_entity = webhook_data.get("payload", {}).get("payment", {}).get("entity", {})
     dispute_entity = webhook_data.get("payload", {}).get("dispute", {}).get("entity", {})
-
-    logger.info(f"Webhook received: {event}")
 
     # ── payment.captured ──────────────────────────────────────────────────────
     if event == "payment.captured":
@@ -319,7 +312,6 @@ async def razorpay_webhook(
                 enrollment.trial_ends_at = None
 
             db.commit()
-            logger.info(f"payment.captured: {payment_id}")
 
             # Send enrollment confirmation email
             try:
@@ -330,8 +322,8 @@ async def razorpay_webhook(
                     asyncio.create_task(
                         send_enrollment_confirmation_email(user.email, user.full_name or "", course.title)
                     )
-            except Exception as e:
-                logger.warning(f"Failed to send enrollment email (webhook): {e}")
+            except Exception:
+                pass
 
     # ── payment.failed ────────────────────────────────────────────────────────
     elif event == "payment.failed":
@@ -354,7 +346,6 @@ async def razorpay_webhook(
             payment.email = payment_entity.get("email")
             payment.webhook_payload = webhook_data
             db.commit()
-            logger.info(f"payment.failed: {payment_id} reason={payment.error_description}")
 
     # ── payment.dispute.created ───────────────────────────────────────────────
     elif event == "payment.dispute.created":
@@ -373,7 +364,6 @@ async def razorpay_webhook(
                 enrollment.payment_status = "locked"
 
             db.commit()
-            logger.warning(f"payment.dispute.created: {payment_id} dispute={payment.dispute_id}")
 
     # ── payment.dispute.action_required ──────────────────────────────────────
     elif event == "payment.dispute.action_required":
@@ -390,7 +380,6 @@ async def razorpay_webhook(
                 enrollment.payment_status = "locked"
 
             db.commit()
-            logger.warning(f"payment.dispute.action_required: {payment_id} — enrollment locked as precaution")
 
     # ── payment.dispute.won ───────────────────────────────────────────────────
     elif event == "payment.dispute.won":
@@ -407,7 +396,6 @@ async def razorpay_webhook(
                 enrollment.payment_status = "paid"
 
             db.commit()
-            logger.info(f"payment.dispute.won: {payment_id}")
 
     # ── payment.dispute.lost ──────────────────────────────────────────────────
     elif event == "payment.dispute.lost":
@@ -425,7 +413,6 @@ async def razorpay_webhook(
                 enrollment.payment_status = "cancelled"
 
             db.commit()
-            logger.warning(f"payment.dispute.lost: {payment_id}")
 
     # ── refund.processed ──────────────────────────────────────────────────────
     elif event == "refund.processed":
@@ -443,10 +430,9 @@ async def razorpay_webhook(
                 enrollment.payment_status = "cancelled"
 
             db.commit()
-            logger.warning(f"refund.processed for payment {payment_id} — enrollment access revoked")
 
     else:
-        logger.info(f"Unhandled webhook event: {event}")
+        pass
 
     return {"status": "ok"}
 
