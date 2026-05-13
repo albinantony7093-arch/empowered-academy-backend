@@ -18,7 +18,9 @@ class TestAttempt(Base):
     exam         = Column(String, nullable=False)
     course_id    = Column(String, ForeignKey("courses.id", ondelete="SET NULL"), nullable=True, index=True)
     status       = Column(String, default=AttemptStatus.generated, nullable=False)
-    score        = Column(Float, nullable=True)
+    score        = Column(Float, nullable=True)   # number of correct answers
+    marks        = Column(Float, nullable=True)   # weighted marks (easy=1, medium=2, hard=3)
+    max_marks    = Column(Float, nullable=True)   # total possible marks
     accuracy     = Column(Float, nullable=True)
     created_at   = Column(DateTime(timezone=True), server_default=func.now())
     submitted_at = Column(DateTime(timezone=True), nullable=True)

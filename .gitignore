@@ -1,3 +1,4 @@
+
 # Python
 __pycache__/
 *.py[cod]
@@ -72,3 +73,6 @@ update_course_prices.py
 update_course_prices.sql
 app/routes/payment_mock.py
 MOCK_PAYMENT_TESTING.md
+
+# Migration scripts
+migrate_test_attempt_marks.py
