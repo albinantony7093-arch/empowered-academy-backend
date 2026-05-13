@@ -188,16 +188,19 @@ class TestQuestionEngine:
         qe._UG_LIST = [
             {"question_id": "T1", "question": "Q1",
              "options": {"A": "Opt A", "B": "Opt B", "C": "Opt C", "D": "Opt D"},
-             "correct_answer": "A", "subject": "Bio", "topic": "Cell"},
+             "correct_answer": "A", "subject": "Bio", "topic": "Cell", "difficulty": "easy"},
             {"question_id": "T2", "question": "Q2",
              "options": {"A": "Opt A", "B": "Opt B", "C": "Opt C", "D": "Opt D"},
-             "correct_answer": "B", "subject": "Bio", "topic": "Cell"},
+             "correct_answer": "B", "subject": "Bio", "topic": "Cell", "difficulty": "hard"},
         ]
         qe._UG_MAP = {q["question_id"]: q for q in qe._UG_LIST}
 
         from app.utils.question_engine import evaluate_answers
         result = evaluate_answers("UG", {"T1": "A", "T2": "B"})
-        assert result["score"] == 2
+        assert result["total_correct"] == 2
+        assert result["total_attempted"] == 2
+        assert result["marks"] == 4       # easy=1 + hard=3
+        assert result["max_marks"] == 4
         assert result["accuracy"] == 100.0
         assert result["weak_areas"] == []
 
@@ -206,13 +209,15 @@ class TestQuestionEngine:
         qe._UG_LIST = [
             {"question_id": "T3", "question": "Q3",
              "options": {"A": "Opt A", "B": "Opt B", "C": "Opt C", "D": "Opt D"},
-             "correct_answer": "A", "subject": "Chem", "topic": "Organic"},
+             "correct_answer": "A", "subject": "Chem", "topic": "Organic", "difficulty": "medium"},
         ]
         qe._UG_MAP = {q["question_id"]: q for q in qe._UG_LIST}
 
         from app.utils.question_engine import evaluate_answers
         result = evaluate_answers("UG", {"T3": "B"})
-        assert result["score"] == 0
+        assert result["total_correct"] == 0
+        assert result["marks"] == 0
+        assert result["max_marks"] == 2   # medium=2
         assert result["accuracy"] == 0.0
         assert "Organic" in result["weak_areas"]
 
@@ -221,19 +226,20 @@ class TestQuestionEngine:
         qe._UG_LIST = [
             {"question_id": "T4", "question": "Q4",
              "options": {"A": "Opt A", "B": "Opt B", "C": "Opt C", "D": "Opt D"},
-             "correct_answer": "A", "subject": "Physics", "topic": "Optics"},
+             "correct_answer": "A", "subject": "Physics", "topic": "Optics", "difficulty": "hard"},
         ]
         qe._UG_MAP = {q["question_id"]: q for q in qe._UG_LIST}
 
         from app.utils.question_engine import evaluate_answers
         result = evaluate_answers("UG", {"T4": "A", "UNKNOWN": "C"})
-        assert result["score"] == 1
-        assert result["total"] == 1   # UNKNOWN skipped
+        assert result["total_correct"] == 1
+        assert result["marks"] == 3       # hard=3
+        assert result["total_attempted"] == 1       # UNKNOWN skipped
 
     def test_evaluate_empty_answers(self):
         from app.utils.question_engine import evaluate_answers
         result = evaluate_answers("UG", {})
-        assert result["score"] == 0
+        assert result["total_correct"] == 0
         assert result["accuracy"] == 0.0
 
 

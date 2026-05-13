@@ -370,8 +370,10 @@ def submit_course_test(
 
     attempt.status = AttemptStatus.submitted
     attempt.submitted_at = datetime.now(timezone.utc)
-    attempt.score = float(result["score"])
-    attempt.accuracy = result["accuracy"]
+    attempt.score     = float(result["total_correct"])
+    attempt.marks     = float(result["marks"])
+    attempt.max_marks = float(result["max_marks"])
+    attempt.accuracy  = result["accuracy"]
 
     for ans in result["per_answer"]:
         db.add(Response(
@@ -389,17 +391,17 @@ def submit_course_test(
         user_id=current_user.id,
         attempt_id=attempt.id,
         subject=attempt.exam,
-        score=float(result["score"]),
+        score=float(result["total_correct"]),
         weak_areas=result["weak_areas"],
     ))
 
     db.commit()
 
-    rank_data = calculate_rank_and_percentile(result["score"], attempt.exam, db)
+    rank_data = calculate_rank_and_percentile(result["total_correct"], attempt.exam, db)
 
     # Generate 3 random mentor advices based on test performance
     try:
-        mentor_advice = generate_mentor_advice(result["score"], result["accuracy"], result["weak_areas"])
+        mentor_advice = generate_mentor_advice(result["total_correct"], result["accuracy"], result["weak_areas"])
         
         # Extended pool of general advice for better variety
         general_advice = [
@@ -454,13 +456,15 @@ def submit_course_test(
         ]
 
     return {
-        "test_id": payload.test_id,
-        "score": result["score"],
-        "total": result["total"],
-        "accuracy": result["accuracy"],
-        "weak_areas": result["weak_areas"],
-        "rank": rank_data["rank"],
-        "percentile": rank_data["percentile"],
-        "mentor_advice": random_advice,
-        "per_answer": result["per_answer"],
+        "test_id":          payload.test_id,
+        "total_correct":    result["total_correct"],
+        "total_attempted":  result["total_attempted"],
+        "marks":            result["marks"],
+        "max_marks":        result["max_marks"],
+        "accuracy":         result["accuracy"],
+        "weak_areas":       result["weak_areas"],
+        "rank":             rank_data["rank"],
+        "percentile":       rank_data["percentile"],
+        "mentor_advice":    random_advice,
+        "per_answer":       result["per_answer"],
     }

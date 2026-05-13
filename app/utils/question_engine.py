@@ -162,14 +162,33 @@ def get_question(exam: str, question_id: str) -> dict | None:
     return mapping.get(question_id)
 
 
+_DIFFICULTY_MARKS = {
+    # UG format
+    "easy":   1,
+    "medium": 2,
+    "hard":   3,
+    # PG format
+    "l": 1,
+    "m": 2,
+    "h": 3,
+}
+
+def _marks_for_difficulty(difficulty: str) -> int:
+    """Return marks awarded for a correct answer based on difficulty level."""
+    return _DIFFICULTY_MARKS.get(difficulty.strip().lower(), 1)
+
+
 def evaluate_answers(exam: str, answers: dict[str, str]) -> dict:
     """
     Score answers dict {question_id: selected_letter}.
-    Returns score, total, accuracy, weak_areas, per_answer.
+    Marks are weighted by difficulty: easy=1, medium=2, hard=3.
+    Returns score (correct count), marks (weighted), total, max_marks, accuracy, weak_areas, per_answer.
     """
     load_exam(exam)
-    correct = 0
-    total   = 0
+    correct   = 0
+    marks     = 0
+    max_marks = 0
+    total     = 0
     topic_stats: dict[str, dict] = {}
     per_answer: list[dict] = []
 
@@ -178,10 +197,13 @@ def evaluate_answers(exam: str, answers: dict[str, str]) -> dict:
         if not q:
             logger.warning(f"Q {q_id!r} not found in {exam} — skipped")
             continue
-        total     += 1
-        is_correct = selected.strip().upper() == q["correct_answer"]
+        total      += 1
+        q_marks     = _marks_for_difficulty(q.get("difficulty", ""))
+        max_marks  += q_marks
+        is_correct  = selected.strip().upper() == q["correct_answer"]
         if is_correct:
             correct += 1
+            marks   += q_marks
 
         topic = q["topic"]
         if topic not in topic_stats:
@@ -193,9 +215,12 @@ def evaluate_answers(exam: str, answers: dict[str, str]) -> dict:
             "question_id": q_id,
             "subject":     q["subject"],
             "topic":       topic,
+            "difficulty":  q.get("difficulty", ""),
+            "marks":       q_marks,
             "selected":    selected,
             "correct":     q["correct_answer"],
             "is_correct":  is_correct,
+            "marks_earned": q_marks if is_correct else 0,
             "explanation": q.get("explanation", ""),
         })
 
@@ -206,9 +231,11 @@ def evaluate_answers(exam: str, answers: dict[str, str]) -> dict:
     ]
 
     return {
-        "score":      correct,
-        "total":      total,
-        "accuracy":   accuracy,
-        "weak_areas": weak_areas,
-        "per_answer": per_answer,
+        "total_correct":   correct,
+        "total_attempted": total,
+        "marks":           marks,
+        "max_marks":       max_marks,
+        "accuracy":        accuracy,
+        "weak_areas":      weak_areas,
+        "per_answer":      per_answer,
     }
