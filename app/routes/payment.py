@@ -243,7 +243,14 @@ def verify_payment(
         if user and course:
             import asyncio
             asyncio.run(
-                send_enrollment_confirmation_email(user.email, user.full_name or "", course.title)
+                send_enrollment_confirmation_email(
+                    email=user.email,
+                    full_name=user.full_name or "",
+                    course_title=course.title,
+                    course_id=course.id,
+                    transaction_id=payload.razorpay_order_id,
+                    razorpay_payment_id=payload.razorpay_payment_id,
+                )
             )
     except Exception as e:
         logger.warning(f"Failed to send enrollment email: {e}")

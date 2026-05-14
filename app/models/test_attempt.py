@@ -15,7 +15,7 @@ class TestAttempt(Base):
     id           = Column(Integer, primary_key=True, index=True)
     user_id      = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     test_id      = Column(String, unique=True, nullable=False, index=True)
-    exam         = Column(String, nullable=False)
+    exam         = Column(String, nullable=False, default="NEET UG")  # "NEET UG" or "NEET PG"
     course_id    = Column(String, ForeignKey("courses.id", ondelete="SET NULL"), nullable=True, index=True)
     status       = Column(String, default=AttemptStatus.generated, nullable=False)
     score        = Column(Float, nullable=True)   # number of correct answers
