@@ -10,8 +10,8 @@ class Settings(BaseSettings):
     DATABASE_URL:                str
     SECRET_KEY:                  str
     ALGORITHM:                   str  = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES:  int = 5
-    REFRESH_TOKEN_EXPIRE_DAYS:    int = 3
+    ACCESS_TOKEN_EXPIRE_MINUTES:   int = 5
+    REFRESH_TOKEN_EXPIRE_MINUTES:  int = 5
     OPENAI_API_KEY:              str  = ""
     ALLOWED_ORIGINS: List[str]       = ["*"]
 
@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     MAIL_FROM:     str = ""
     MAIL_SERVER:   str = "smtp.gmail.com"
     MAIL_PORT:     int = 587
+
+    # Frontend
+    FRONTEND_URL: str = "https://empowered-82b6d.web.app/"
 
     # Razorpay
     RAZORPAY_KEY_ID: str = ""

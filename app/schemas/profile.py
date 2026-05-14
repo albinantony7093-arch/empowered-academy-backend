@@ -34,6 +34,7 @@ class ProfileOut(BaseModel):
     rank: Optional[int] = None
     average_score: Optional[float] = None
     tests_taken: int = 0
+    latest_test_marks: Optional[float] = None
     enrolled_courses: List[EnrolledCourse] = []
 
     class Config:

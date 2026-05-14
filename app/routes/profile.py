@@ -52,13 +52,15 @@ def get_profile(
         
         # Get latest score for rank calculation from most recent test
         latest_score = None
-        latest_exam_type = "UG"  # Default
+        latest_marks = None
+        latest_exam_type = "NEET UG"  # Default
         
         if test_attempts:
             # Sort by submission date to get the most recent
             sorted_attempts = sorted(test_attempts, key=lambda x: x.submitted_at or x.created_at, reverse=True)
             latest_attempt = sorted_attempts[0]
             latest_score = latest_attempt.score
+            latest_marks = latest_attempt.marks
             latest_exam_type = latest_attempt.exam
         
         # Calculate rank based on latest score and exam type
@@ -73,7 +75,7 @@ def get_profile(
                     exam_type = "UG"
                 else:
                     # Fallback to latest test exam type
-                    exam_type = latest_exam_type
+                    exam_type = "PG" if latest_exam_type == "NEET PG" else "UG"
                 
                 rank_data = calculate_rank_and_percentile(latest_score, exam_type, db)
             except Exception as e:
@@ -129,6 +131,7 @@ def get_profile(
             rank=rank_data["rank"] if rank_data else None,
             average_score=average_score,
             tests_taken=tests_taken,
+            latest_test_marks=latest_marks,
             enrolled_courses=enrolled_courses,
         )
         
