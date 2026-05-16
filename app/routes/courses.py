@@ -292,7 +292,13 @@ def start_course_test(
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
-    exam = course.exam.upper()
+    raw_exam = course.exam.upper()
+    if "PG" in raw_exam:
+        exam = "PG"
+    elif "UG" in raw_exam:
+        exam = "UG"
+    else:
+        exam = raw_exam
 
     # Count tests started today for this course
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -366,7 +372,15 @@ def submit_course_test(
         raise HTTPException(status_code=400, detail="Invalid test attempt")
     _get_active_enrollment(attempt.course_id, user_id=current_user.id, db=db)
 
-    result = evaluate_answers(attempt.exam, payload.answers)
+    raw_exam = attempt.exam.upper() if attempt.exam else ""
+    if "PG" in raw_exam:
+        normalized_exam = "PG"
+    elif "UG" in raw_exam:
+        normalized_exam = "UG"
+    else:
+        normalized_exam = raw_exam
+
+    result = evaluate_answers(normalized_exam, payload.answers)
 
     attempt.status = AttemptStatus.submitted
     attempt.submitted_at = datetime.now(timezone.utc)
