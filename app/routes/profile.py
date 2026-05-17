@@ -117,11 +117,14 @@ def get_profile(
                 logger.warning(f"Failed to parse preferred_subjects for user {current_user.id}: {e}")
                 preferred_subjects = None
         
+        # Prefer profile phone_number; fall back to registration phone_number
+        phone_number = user_profile.phone_number or getattr(current_user, "phone_number", None)
+
         return ProfileOut(
             user_id=current_user.id,
             name=current_user.full_name or "",
             email=current_user.email,
-            phone_number=user_profile.phone_number,
+            phone_number=phone_number,
             date_of_birth=user_profile.date_of_birth,
             gender=user_profile.gender,
             target_exam=user_profile.target_exam,
