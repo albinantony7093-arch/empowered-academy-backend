@@ -39,55 +39,57 @@ def get_dashboard(
         exam = course.exam.upper()
 
         try:
-            attempt_ids = [
-                a.id for a in db.query(TestAttempt).filter(
+            # Get all submitted attempts for this course, ordered latest first
+            course_attempts = (
+                db.query(TestAttempt)
+                .filter(
                     TestAttempt.user_id == user_id,
                     TestAttempt.course_id == course_id,
-                ).all()
-            ]
+                    TestAttempt.status == "submitted",
+                )
+                .order_by(TestAttempt.submitted_at.desc())
+                .all()
+            )
+
+            attempt_ids = [a.id for a in course_attempts]
+
+            # recent_scores from submitted attempts of this course
+            recent_scores = [a.score for a in course_attempts if a.score is not None]
+
+            # Latest test details from the most recent submitted attempt
+            latest_test_details = None
+            if course_attempts:
+                latest_attempt = course_attempts[0]
+                try:
+                    attempt_responses = db.query(Response).filter(Response.attempt_id == latest_attempt.id).all()
+                    total_questions = len(attempt_responses)
+                    correct_answers = sum(1 for r in attempt_responses if r.is_correct)
+                    accuracy = round((correct_answers / total_questions * 100), 1) if total_questions > 0 else 0.0
+
+                    latest_test_details = {
+                        "latest_score":       latest_attempt.score,
+                        "total_questions":    total_questions,
+                        "correct_answers":    correct_answers,
+                        "accuracy":           accuracy,
+                        "latest_marks":       latest_attempt.marks,
+                        "latest_total_marks": latest_attempt.max_marks,
+                    }
+                except Exception as e:
+                    logger.warning(f"Failed to get latest test details for user {user_id}: {e}")
+                    latest_test_details = {
+                        "latest_score":       latest_attempt.score,
+                        "total_questions":    None,
+                        "correct_answers":    None,
+                        "accuracy":           None,
+                        "latest_marks":       latest_attempt.marks,
+                        "latest_total_marks": latest_attempt.max_marks,
+                    }
 
             results = (
                 db.query(TestResult)
                 .filter(TestResult.user_id == user_id, TestResult.attempt_id.in_(attempt_ids))
-                .order_by(TestResult.created_at.desc())
-                .limit(20)
                 .all()
             )
-
-            # Get detailed recent scores with accuracy and total questions
-            recent_scores = []
-            latest_test_details = None
-            
-            for i, result in enumerate(results):
-                if result.score is not None:
-                    recent_scores.append(result.score)
-                    
-                    # Get details for the most recent test (first result)
-                    if i == 0:
-                        try:
-                            # Get attempt details for this result
-                            attempt = db.query(TestAttempt).filter(TestAttempt.id == result.attempt_id).first()
-                            
-                            # Count total questions and correct answers for this attempt
-                            attempt_responses = db.query(Response).filter(Response.attempt_id == result.attempt_id).all()
-                            total_questions = len(attempt_responses)
-                            correct_answers = sum(1 for r in attempt_responses if r.is_correct)
-                            accuracy = round((correct_answers / total_questions * 100), 1) if total_questions > 0 else 0.0
-                            
-                            latest_test_details = {
-                                "latest_score": result.score,
-                                "total_questions": total_questions,
-                                "correct_answers": correct_answers,
-                                "accuracy": accuracy
-                            }
-                        except Exception as e:
-                            logger.warning(f"Failed to get latest test details for user {user_id}: {e}")
-                            latest_test_details = {
-                                "latest_score": result.score,
-                                "total_questions": None,
-                                "correct_answers": None,
-                                "accuracy": None
-                            }
 
             responses = (
                 db.query(Response)
@@ -192,18 +194,16 @@ def get_dashboard(
                 ]
 
             return {
-                "user_id":       user_id,
-                "exam":          exam,
-                "course_id":     course_id,
-                "recent_scores": recent_scores,
-                "latest_score": latest_test_details["latest_score"] if latest_test_details else None,
-                "total_questions": latest_test_details["total_questions"] if latest_test_details else None,
-                "correct_answers": latest_test_details["correct_answers"] if latest_test_details else None,
-                "accuracy": latest_test_details["accuracy"] if latest_test_details else None,
-                "rank":          rank_data["rank"],
-                "percentile":    rank_data["percentile"],
-                "weak_areas":    weak_areas,
-                "mentor_advice": random_advice,
+                "user_id":            user_id,
+                "exam":               exam,
+                "course_id":          course_id,
+                "marks_scored":       latest_test_details["latest_marks"] if latest_test_details else None,
+                "max_marks":          latest_test_details["latest_total_marks"] if latest_test_details else None,
+                "total_questions_attempted": latest_test_details["total_questions"] if latest_test_details else None,
+                "rank":               rank_data["rank"],
+                "percentile":         rank_data["percentile"],
+                "weak_areas":         weak_areas,
+                "mentor_advice":      random_advice,
             }
             
         except Exception as e:

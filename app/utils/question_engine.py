@@ -178,11 +178,13 @@ def _marks_for_difficulty(difficulty: str) -> int:
     return _DIFFICULTY_MARKS.get(difficulty.strip().lower(), 1)
 
 
-def evaluate_answers(exam: str, answers: dict[str, str]) -> dict:
+def evaluate_answers(exam: str, answers: dict[str, str], all_questions: list[dict] | None = None) -> dict:
     """
     Score answers dict {question_id: selected_letter}.
     Marks are weighted by difficulty: easy=1, medium=2, hard=3.
-    Returns score (correct count), marks (weighted), total, max_marks, accuracy, weak_areas, per_answer.
+
+    all_questions: full list of {question_id, difficulty} for the test (all 30).
+    If provided, max_marks is computed from all questions regardless of how many were answered.
     """
     load_exam(exam)
     correct   = 0
@@ -192,15 +194,24 @@ def evaluate_answers(exam: str, answers: dict[str, str]) -> dict:
     topic_stats: dict[str, dict] = {}
     per_answer: list[dict] = []
 
+    # Compute max_marks from the full question set if provided
+    if all_questions:
+        for q_meta in all_questions:
+            q = get_question(exam, q_meta["question_id"])
+            if q:
+                max_marks += _marks_for_difficulty(q_meta.get("difficulty") or q.get("difficulty", ""))
+    
     for q_id, selected in answers.items():
         q = get_question(exam, q_id)
         if not q:
             logger.warning(f"Q {q_id!r} not found in {exam} — skipped")
             continue
-        total      += 1
-        q_marks     = _marks_for_difficulty(q.get("difficulty", ""))
-        max_marks  += q_marks
-        is_correct  = selected.strip().upper() == q["correct_answer"]
+        total     += 1
+        q_marks    = _marks_for_difficulty(q.get("difficulty", ""))
+        # Only add to max_marks if we didn't already compute from all_questions
+        if not all_questions:
+            max_marks += q_marks
+        is_correct = selected.strip().upper() == q["correct_answer"]
         if is_correct:
             correct += 1
             marks   += q_marks
@@ -212,16 +223,16 @@ def evaluate_answers(exam: str, answers: dict[str, str]) -> dict:
         topic_stats[topic]["correct"] += int(is_correct)
 
         per_answer.append({
-            "question_id": q_id,
-            "subject":     q["subject"],
-            "topic":       topic,
-            "difficulty":  q.get("difficulty", ""),
-            "marks":       q_marks,
-            "selected":    selected,
-            "correct":     q["correct_answer"],
-            "is_correct":  is_correct,
+            "question_id":  q_id,
+            "subject":      q["subject"],
+            "topic":        topic,
+            "difficulty":   q.get("difficulty", ""),
+            "marks":        q_marks,
+            "selected":     selected,
+            "correct":      q["correct_answer"],
+            "is_correct":   is_correct,
             "marks_earned": q_marks if is_correct else 0,
-            "explanation": q.get("explanation", ""),
+            "explanation":  q.get("explanation", ""),
         })
 
     accuracy   = round((correct / total) * 100, 1) if total > 0 else 0.0
@@ -233,6 +244,7 @@ def evaluate_answers(exam: str, answers: dict[str, str]) -> dict:
     return {
         "total_correct":   correct,
         "total_attempted": total,
+        "total_questions": len(all_questions) if all_questions else total,
         "marks":           marks,
         "max_marks":       max_marks,
         "accuracy":        accuracy,

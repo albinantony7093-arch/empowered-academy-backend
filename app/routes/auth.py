@@ -57,6 +57,7 @@ async def register(payload: UserCreate, db: Session = Depends(get_db)):
     if pending:
         pending.hashed_password = hash_password(payload.password)
         pending.full_name       = payload.full_name
+        pending.phone_number    = payload.phone_number
         pending.otp             = otp
         pending.expires_at      = expires_at
     else:
@@ -64,6 +65,7 @@ async def register(payload: UserCreate, db: Session = Depends(get_db)):
             email=payload.email,
             hashed_password=hash_password(payload.password),
             full_name=payload.full_name,
+            phone_number=payload.phone_number,
             otp=otp,
             expires_at=expires_at,
         )
@@ -105,6 +107,7 @@ def verify_otp(payload: OTPVerify, db: Session = Depends(get_db)):
         email=pending.email,
         hashed_password=pending.hashed_password,
         full_name=pending.full_name,
+        phone_number=pending.phone_number,
     )
     db.add(user)
     db.delete(pending)

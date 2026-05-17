@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text
 from sqlalchemy.sql import func
 import enum
 from app.core.database import Base
@@ -22,5 +22,6 @@ class TestAttempt(Base):
     marks        = Column(Float, nullable=True)   # weighted marks (easy=1, medium=2, hard=3)
     max_marks    = Column(Float, nullable=True)   # total possible marks
     accuracy     = Column(Float, nullable=True)
+    questions    = Column(Text, nullable=True)    # JSON list of {question_id, difficulty}
     created_at   = Column(DateTime(timezone=True), server_default=func.now())
     submitted_at = Column(DateTime(timezone=True), nullable=True)

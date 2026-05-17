@@ -4,6 +4,7 @@ from typing import List
 from datetime import datetime, timedelta, timezone
 import uuid
 import logging
+import json
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_admin, require_page_admin, get_current_user_optional
@@ -326,6 +327,10 @@ def start_course_test(
         exam=exam,
         course_id=course_id,
         status=AttemptStatus.generated,
+        questions=json.dumps([
+            {"question_id": q["question_id"], "difficulty": q["difficulty"]}
+            for q in questions
+        ]),
     )
     db.add(attempt)
     db.commit()
@@ -380,7 +385,8 @@ def submit_course_test(
     else:
         normalized_exam = raw_exam
 
-    result = evaluate_answers(normalized_exam, payload.answers)
+    result = evaluate_answers(normalized_exam, payload.answers, 
+                              all_questions=json.loads(attempt.questions) if attempt.questions else None)
 
     attempt.status = AttemptStatus.submitted
     attempt.submitted_at = datetime.now(timezone.utc)
@@ -471,6 +477,7 @@ def submit_course_test(
 
     return {
         "test_id":          payload.test_id,
+        "total_questions":  result["total_questions"],
         "total_correct":    result["total_correct"],
         "total_attempted":  result["total_attempted"],
         "marks":            result["marks"],
