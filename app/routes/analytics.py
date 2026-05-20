@@ -200,6 +200,8 @@ def get_dashboard(
                 "marks_scored":       latest_test_details["latest_marks"] if latest_test_details else None,
                 "max_marks":          latest_test_details["latest_total_marks"] if latest_test_details else None,
                 "total_questions_attempted": latest_test_details["total_questions"] if latest_test_details else None,
+                "correct_answers":    latest_test_details["correct_answers"] if latest_test_details else None,
+                "accuracy":           latest_test_details["accuracy"] if latest_test_details else None,
                 "rank":               rank_data["rank"],
                 "percentile":         rank_data["percentile"],
                 "weak_areas":         weak_areas,
