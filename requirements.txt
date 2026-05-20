@@ -35,3 +35,6 @@ anyio==4.13.0
 
 # Payment
 razorpay==1.4.2
+
+# Monitoring
+sentry-sdk[fastapi]==2.26.0

@@ -1,4 +1,5 @@
 import logging
+import sentry_sdk
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -18,6 +19,17 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+# Sentry — only initialises when DSN is set (safe to leave blank in local dev)
+if settings.SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        send_default_pii=False,
+        traces_sample_rate=1.0,
+        profile_session_sample_rate=1.0,
+        profile_lifecycle="trace",
+    )
+    logger.info("Sentry initialised")
 
 app = FastAPI(title="Empowered Academy API", version="1.3.0")
 
@@ -132,4 +144,10 @@ def health_check():
     except Exception:
         db_status = "unreachable"
     return {"status": "ok", "version": "1.3.0", "db": db_status}
+
+
+# TODO: Remove this route after verifying Sentry is working
+@app.get("/sentry-debug", tags=["ops"])
+async def trigger_error():
+    division_by_zero = 1 / 0
 
