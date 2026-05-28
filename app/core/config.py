@@ -23,12 +23,12 @@ class Settings(BaseSettings):
     MAIL_PORT:     int = 587
 
     # Frontend
-    FRONTEND_URL: str = "https://empowered-82b6d.web.app/"
+    FRONTEND_URL: str = "https://learn.empoweredacademy.in"
 
-    # Razorpay
-    RAZORPAY_KEY_ID: str = ""
-    RAZORPAY_KEY_SECRET: str = ""
-    RAZORPAY_WEBHOOK_SECRET: str = ""
+    # Cashfree
+    CASHFREE_APP_ID: str = ""
+    CASHFREE_SECRET_KEY: str = ""
+    CASHFREE_ENV: str = "sandbox"  # "sandbox" or "production"
 
     # Sentry
     SENTRY_DSN: str = ""

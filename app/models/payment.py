@@ -12,14 +12,14 @@ class Payment(Base):
     course_id = Column(String, ForeignKey("courses.id"), nullable=False, index=True)
     enrollment_id = Column(String, ForeignKey("enrollments.id"), nullable=False, index=True)
 
-    # ── Razorpay IDs ──────────────────────────────────────────────────────────
-    razorpay_order_id = Column(String, unique=True, nullable=False, index=True)
-    razorpay_payment_id = Column(String, unique=True, nullable=True, index=True)
-    razorpay_signature = Column(String, nullable=True)
+    # ── Cashfree IDs ─────────────────────────────────────────────────────────
+    cf_order_id = Column(String, unique=True, nullable=False, index=True)   # our order_id sent to Cashfree
+    cf_payment_id = Column(String, unique=True, nullable=True, index=True)  # Cashfree's payment ID
+    payment_session_id = Column(String, nullable=True)                       # Cashfree session ID for checkout
 
     # ── Amount ────────────────────────────────────────────────────────────────
     amount = Column(Numeric(10, 2), nullable=False)          # INR
-    amount_due = Column(Numeric(10, 2), nullable=True)       # from Razorpay order
+    amount_due = Column(Numeric(10, 2), nullable=True)       # from Cashfree order
     amount_paid = Column(Numeric(10, 2), nullable=True)      # confirmed paid amount
     currency = Column(String, nullable=False, default="INR")
 
@@ -51,9 +51,9 @@ class Payment(Base):
     dispute_reason = Column(String, nullable=True)
     dispute_amount = Column(Numeric(10, 2), nullable=True)
 
-    # ── Razorpay receipt & notes ──────────────────────────────────────────────
-    receipt = Column(String, nullable=True)                  # receipt id sent to Razorpay
-    notes = Column(JSON, nullable=True)                      # notes dict sent to Razorpay
+    # ── Receipt & notes ──────────────────────────────────────────────────────
+    receipt = Column(String, nullable=True)                  # receipt id (kept for compat)
+    notes = Column(JSON, nullable=True)                      # notes dict
 
     # ── Raw webhook payloads for full auditability ────────────────────────────
     # Stores the last raw webhook JSON received for this payment

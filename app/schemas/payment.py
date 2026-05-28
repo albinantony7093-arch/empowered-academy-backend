@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional, Any, Dict
+from typing import Optional
 
 
 class CreatePaymentOrderRequest(BaseModel):
@@ -12,16 +12,16 @@ class CreatePaymentOrderRequest(BaseModel):
 
 
 class CreatePaymentOrderResponse(BaseModel):
-    order_id: str
+    order_id: str               # our internal order_id (== cf_order_id)
+    payment_session_id: str     # Cashfree session ID — passed to JS SDK
     amount: float
     currency: str
-    razorpay_key_id: str
 
 
-class VerifyPaymentRequest(BaseModel):
-    razorpay_order_id: str
-    razorpay_payment_id: str
-    razorpay_signature: str
+class WebhookVerifyRequest(BaseModel):
+    """Used internally; not exposed as an endpoint body."""
+    order_id: str
+    cf_payment_id: str
 
 
 class VerifyPaymentResponse(BaseModel):
@@ -36,13 +36,13 @@ class PaymentOut(BaseModel):
     course_id: str
     enrollment_id: str
 
-    # Razorpay IDs
-    razorpay_order_id: str
-    razorpay_payment_id: Optional[str] = None
+    # Cashfree IDs
+    cf_order_id: str
+    cf_payment_id: Optional[str] = None
+    payment_session_id: Optional[str] = None
 
     # Amount
     amount: float
-    amount_due: Optional[float] = None
     amount_paid: Optional[float] = None
     currency: str
 
