@@ -34,7 +34,7 @@ httpx==0.28.1
 anyio==4.13.0
 
 # Payment
-razorpay==1.4.2
+# httpx is already listed above (used for Cashfree API calls)
 
 # Monitoring
 sentry-sdk[fastapi]==2.26.0

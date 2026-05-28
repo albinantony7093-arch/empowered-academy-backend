@@ -137,7 +137,7 @@ def _enrollment_template(
     course_id: str = "",
     transaction_date: str = "",
     transaction_id: str = "",
-    razorpay_payment_id: str = "",
+    payment_id: str = "",
 ) -> str:
     tx_rows = ""
     if transaction_date:
@@ -152,11 +152,11 @@ def _enrollment_template(
       <td style="padding:10px 14px;border-bottom:1px solid #eee;color:#555;font-size:14px;">Order ID</td>
       <td style="padding:10px 14px;border-bottom:1px solid #eee;font-size:13px;color:#666;">{transaction_id}</td>
     </tr>"""
-    if razorpay_payment_id:
+    if payment_id:
         tx_rows += f"""
     <tr>
       <td style="padding:10px 14px;border-bottom:1px solid #eee;color:#555;font-size:14px;">Payment ID</td>
-      <td style="padding:10px 14px;border-bottom:1px solid #eee;font-size:13px;color:#666;">{razorpay_payment_id}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #eee;font-size:13px;color:#666;">{payment_id}</td>
     </tr>"""
 
     course_url = f"{settings.FRONTEND_URL}/courses/{course_id}" if course_id else f"{settings.FRONTEND_URL}/courses"
@@ -333,9 +333,9 @@ async def send_enrollment_confirmation_email(
     course_id: str = "",
     transaction_date: str = "",
     transaction_id: str = "",
-    razorpay_payment_id: str = "",
+    payment_id: str = "",
 ) -> None:
-    html = _enrollment_template(full_name, course_title, course_id, transaction_date, transaction_id, razorpay_payment_id)
+    html = _enrollment_template(full_name, course_title, course_id, transaction_date, transaction_id, payment_id)
     await _send_email(email, subject=f"You're enrolled in {course_title} — {BRAND_NAME}", html_body=html)
 
 
