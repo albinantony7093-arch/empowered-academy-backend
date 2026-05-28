@@ -53,9 +53,10 @@ def _cashfree_headers() -> dict:
 def _verify_webhook_signature(timestamp: str, raw_body: str, received_signature: str) -> bool:
     """Verify Cashfree webhook signature per their official docs."""
     signed_payload = timestamp + raw_body
+    secret = settings.CASHFREE_WEBHOOK_SECRET or settings.CASHFREE_SECRET_KEY
     generated = base64.b64encode(
         hmac.new(
-            settings.CASHFREE_SECRET_KEY.encode(),
+            secret.encode(),
             signed_payload.encode(),
             hashlib.sha256,
         ).digest()

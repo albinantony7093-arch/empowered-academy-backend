@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     # Cashfree
     CASHFREE_APP_ID: str = ""
     CASHFREE_SECRET_KEY: str = ""
+    CASHFREE_WEBHOOK_SECRET: str = ""
     CASHFREE_ENV: str = "sandbox"  # "sandbox" or "production"
 
     # Sentry
