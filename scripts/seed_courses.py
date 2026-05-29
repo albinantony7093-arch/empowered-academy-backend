@@ -9,15 +9,15 @@ PURPOSE:
 
     Resulting course cards:
         NEET UG category:
-            - NEET UG GOLD     (paid, 6-month validity)
+            - NEET UG GOLD     (paid, 1-year validity)
             - NEET UG PLATINUM (paid, lifetime)
 
         NEET PG category:
-            - NEET PG GOLD     (paid, 6-month validity)
+            - NEET PG GOLD     (paid, 1-year validity)
             - NEET PG PLATINUM (paid, 1-year validity)
 
         CRASH COURSE category:
-            - Crash Course     (free, 30-day access)
+            - Crash Course     (free, 15-day access)
 
 HOW TO RUN:
     docker cp scripts/seed_courses.py empowered-academy-backend-api-1:/app/seed_courses.py
@@ -68,94 +68,34 @@ print(f"Using creator: {admin.email} (role={admin.role})\n")
 courses_data = [
     {
         # ── NEET UG GOLD ──────────────────────────────────────────────────────
-        # Entry-level paid plan for NEET UG aspirants.
+        # Smart Recovery Engine Gold — 1 year access.
         # Trial: 4 days, 30 questions/test, 4 tests/day
-        # Paid:  6 months, 45 questions/test, 6 tests/day
+        # Paid:  1 year, 45 questions/test, 6 tests/day
         "title": "NEET UG GOLD",
         "description": (
-            "The NEET UG Gold plan is designed for serious NEET UG aspirants who want structured, "
-            "exam-focused practice over 6 months. Get access to thousands of high-yield MCQs across "
-            "Physics, Chemistry, and Biology — curated from previous years' papers and the latest NMC syllabus. "
-            "Each test is timed and mirrors the real NEET UG pattern with 45 questions per session. "
-            "After every test, detailed subject-wise analytics show your strengths and weak areas so you "
-            "can focus your revision where it matters most. Track your rank and percentile among all Gold "
-            "plan students to benchmark your preparation. The built-in AI mentor reviews your performance "
-            "and gives personalised feedback on topics you're struggling with. Ideal for students in Class 12 "
-            "or repeaters targeting the upcoming NEET UG cycle."
+            "AI-powered NEET UG preparation ecosystem with 10,000+ MCQs, adaptive mock tests, "
+            "concept clarity videos, and smart revision tools — 1 year access."
         ),
-        "exam": "NEET UG",          # groups this card under NEET UG category
-        "price": 1999,
-        "is_free": False,
-        "is_flagship": True,
-        "free_questions_per_test": 30,   # trial limit
-        "free_daily_test_limit": 4,      # trial limit
-        "free_trial_days": 4,            # trial lasts 4 days
-        "questions_per_test": 45,        # paid limit
-        "daily_test_limit": 6,           # paid limit
-        "validity_days": 180,            # 6 months
-        "keypoints": [
-            "6 months access",
-            "45 questions per test",
-            "6 tests per day",
-            "Subject-wise analytics",
-            "Rank & percentile tracking",
-            "AI mentor feedback",
-        ],
-    },
-    {
-        # ── NEET UG PLATINUM ─────────────────────────────────────────────────
-        # Premium plan for NEET UG — lifetime access, higher question count.
-        # Trial: same as GOLD (4 days, 30 questions, 4 tests)
-        # Paid:  lifetime, 75 questions/test, 6 tests/day
-        "title": "NEET UG PLATINUM",
-        "description": (
-            "The NEET UG Platinum plan is the most comprehensive preparation package for NEET UG — "
-            "with lifetime access so you can keep practising until you crack it. Get 75 questions per "
-            "test session, covering the full NMC syllabus across Physics, Chemistry, Botany, and Zoology. "
-            "Questions are regularly updated to reflect the latest exam trends, new NCERT additions, and "
-            "high-frequency topics from recent NEET UG papers. Deep subject-wise and chapter-wise analytics "
-            "help you build a data-driven revision strategy. Rank tracking puts you on a live leaderboard "
-            "among Platinum students nationwide. The AI mentor provides topic-level guidance, flags your "
-            "recurring mistakes, and suggests targeted revision plans. Best suited for students who want "
-            "the highest level of preparation with no time pressure on their access."
+        "detailed_description": (
+            "Smart Recovery Engine Gold is built for serious NEET UG aspirants who need structured, "
+            "AI-powered preparation over one full year. This is not a passive lecture platform — it is "
+            "an intelligent preparation ecosystem that continuously analyses your mock test performance, "
+            "MCQ mistakes, weak concepts, and revision patterns to guide you toward the areas that need "
+            "immediate improvement. Get access to 10,000+ high-quality NEET MCQs covering Physics, "
+            "Chemistry, and Biology, curated by NEET weightage, PYQ trends, and AIR discriminator concepts. "
+            "Practice with chapter-wise, subject-wise, and full-length mock tests with adaptive analytics "
+            "that identify weak chapters, repeated mistakes, and low-confidence zones. "
+            "High-quality animated concept clarity videos are recommended intelligently based on your "
+            "test weaknesses and MCQ error patterns. Chapter-wise and subject-wise flashcards help with "
+            "rapid revision, formula retention, and active recall. The AIR-Oriented Intelligence Engine "
+            "prioritises high-scoring topics and rank discriminator concepts to maximise your marks "
+            "efficiently. Adaptive spaced repeat revision automatically resurfaces forgotten concepts "
+            "and unstable memory areas. The Calm Corner — a dedicated mental wellness space — helps you "
+            "reduce stress, recover confidence, and avoid burnout during long-term preparation. "
+            "Ideal for Class 12 students and repeaters targeting the upcoming NEET UG cycle."
         ),
         "exam": "NEET UG",
-        "price": 3499,
-        "is_free": False,
-        "is_flagship": True,
-        "free_questions_per_test": 30,
-        "free_daily_test_limit": 4,
-        "free_trial_days": 4,
-        "questions_per_test": 75,        # more questions than GOLD
-        "daily_test_limit": 6,
-        "validity_days": None,           # None = lifetime, plan_expires_at never set
-        "keypoints": [
-            "Lifetime access",
-            "75 questions per test",
-            "6 tests per day",
-            "Subject-wise analytics",
-            "Rank & percentile tracking",
-            "AI mentor feedback",
-        ],
-    },
-    {
-        # ── NEET PG GOLD ─────────────────────────────────────────────────────
-        # Entry-level paid plan for NEET PG aspirants.
-        # Same structure as NEET UG GOLD but PG-level content and higher price.
-        "title": "NEET PG GOLD",
-        "description": (
-            "The NEET PG Gold plan is built for MBBS graduates preparing for the National Exit Test (NExT) "
-            "and NEET PG entrance. Get 6 months of focused practice with 45 clinical and theory-based MCQs "
-            "per test, covering all 19 subjects of the NEET PG syllabus — from Medicine and Surgery to "
-            "Pathology, Pharmacology, and PSM. Questions are framed in the clinical vignette style used in "
-            "the actual exam, helping you develop the reasoning skills needed to tackle case-based scenarios. "
-            "Subject-wise performance analytics highlight which specialties need more attention. Rank and "
-            "percentile tracking lets you compare your standing with other PG aspirants. AI mentor feedback "
-            "identifies pattern-based errors and recommends high-yield revision topics. A solid choice for "
-            "interns and fresh MBBS graduates starting their PG prep journey."
-        ),
-        "exam": "NEET PG",
-        "price": 2499,
+        "price": 9999,
         "is_free": False,
         "is_flagship": True,
         "free_questions_per_test": 30,
@@ -163,34 +103,47 @@ courses_data = [
         "free_trial_days": 4,
         "questions_per_test": 45,
         "daily_test_limit": 6,
-        "validity_days": 180,
+        "validity_days": 365,            # 1 year
         "keypoints": [
-            "6 months access",
-            "45 questions per test",
-            "6 tests per day",
-            "Clinical case-based questions",
-            "Rank & percentile among PG aspirants",
-            "AI mentor feedback",
+            "1 year access",
+            "10,000+ high-quality NEET MCQs",
+            "Adaptive mock tests & weak area analytics",
+            "Animated concept clarity videos",
+            "Flashcards & spaced repeat revision",
+            "AIR-oriented intelligence engine",
+            "Calm Corner — mental wellness support",
+            "AI-powered performance analytics",
         ],
     },
     {
-        # ── NEET PG PLATINUM ─────────────────────────────────────────────────
-        # Premium plan for NEET PG — 1 year access (not lifetime like UG Platinum).
-        "title": "NEET PG PLATINUM",
+        # ── NEET UG PLATINUM ─────────────────────────────────────────────────
+        # Smart Recovery Engine Platinum — lifetime access, deeper AI features.
+        # Trial: 4 days, 30 questions/test, 4 tests/day
+        # Paid:  lifetime, 75 questions/test, 6 tests/day
+        "title": "NEET UG PLATINUM",
         "description": (
-            "The NEET PG Platinum plan offers the most intensive preparation experience for NEET PG and NExT, "
-            "with 1 full year of unlimited access. Practice with 75 questions per test across all major "
-            "clinical and pre-clinical subjects, including high-difficulty case-based questions that mirror "
-            "the evolving NEET PG exam pattern. The question bank is continuously updated with recent exam "
-            "recalls, new clinical guidelines, and high-yield topics flagged by toppers. Advanced analytics "
-            "break down your performance by subject, chapter, and difficulty level — giving you a precise "
-            "picture of where you stand. Live rank tracking among Platinum PG students keeps you motivated "
-            "and competitive. The AI mentor goes deeper here — analysing your test history over time, "
-            "spotting knowledge gaps, and building a personalised study plan around your weak subjects. "
-            "Recommended for serious PG aspirants who want a full-year, data-driven preparation strategy."
+            "The most advanced NEET UG AI preparation ecosystem — lifetime access with elite AIR analytics, "
+            "adaptive intelligence, and everything in Gold, enhanced."
         ),
-        "exam": "NEET PG",
-        "price": 4499,
+        "detailed_description": (
+            "Smart Recovery Engine Platinum is the most advanced NEET UG preparation ecosystem — "
+            "with lifetime access and elite adaptive intelligence features designed for AIR-oriented "
+            "rank optimisation. Everything in the Gold plan is included, plus deeper tools for serious "
+            "rank improvement: extended test coverage, advanced AIR analytics, premium revision workflows, "
+            "enhanced concept tracking, and deeper adaptive recommendations. "
+            "The platform continuously analyses your performance, weak concepts, retention gaps, "
+            "mock test behaviour, revision consistency, and scoring patterns to create a personalised "
+            "recovery and improvement pathway that adapts throughout your entire preparation journey. "
+            "Practice with 75 questions per test session from a 10,000+ question bank covering the "
+            "full NEET syllabus across Physics, Chemistry, Botany, and Zoology, curated for NEET "
+            "weightage, PYQ trends, and high-discriminator concepts. Intelligent video recommendations, "
+            "flashcard engine, adaptive spaced repeat revision, and the Calm Corner wellness space are "
+            "all included. With lifetime access, there is no time pressure — keep practising and "
+            "improving until you reach your target rank. Best suited for students who want the highest "
+            "level of AI-powered NEET preparation with no access deadline."
+        ),
+        "exam": "NEET UG",
+        "price": 14999,
         "is_free": False,
         "is_flagship": True,
         "free_questions_per_test": 30,
@@ -198,49 +151,154 @@ courses_data = [
         "free_trial_days": 4,
         "questions_per_test": 75,
         "daily_test_limit": 6,
-        "validity_days": 365,            # 1 year
+        "validity_days": None,           # None = lifetime
         "keypoints": [
-            "1 year access",
-            "75 questions per test",
-            "6 tests per day",
-            "Clinical case-based questions",
-            "Rank & percentile among PG aspirants",
-            "AI mentor feedback",
+            "Lifetime access",
+            "10,000+ high-quality NEET MCQs",
+            "Advanced AIR analytics & rank prediction",
+            "Adaptive difficulty testing",
+            "Premium revision workflows",
+            "Deeper adaptive AI recommendations",
+            "Calm Corner — mental wellness support",
+            "Everything in Gold, enhanced",
         ],
     },
     {
-        # ── CRASH COURSE ─────────────────────────────────────────────────────
-        # Free course — no payment, no upgrade path.
-        # Student gets 30-day access on enrollment (status = "free").
+        # ── NEET PG GOLD ─────────────────────────────────────────────────────
+        # Smart Recovery Engine Gold for NEET PG — 1 year, ₹14,999.
+        # Trial: 7 days, 30 questions/test, 4 tests/day
+        # Paid:  1 year, 45 questions/test, 6 tests/day
+        "title": "NEET PG GOLD",
+        "description": (
+            "AI-powered NEET PG preparation with 12,000+ clinical MCQs, smart recovery engine, "
+            "and adaptive analytics — 1 year access with a 7-day free trial."
+        ),
+        "detailed_description": (
+            "Smart Recovery Engine Gold for NEET PG is an AI-powered preparation ecosystem built for "
+            "MBBS graduates targeting NEET PG and NExT. This is not a traditional lecture-heavy LMS — "
+            "it is an intelligent system focused on active learning, adaptive testing, weakness correction, "
+            "clinical reasoning, and rank optimisation. "
+            "Get access to 12,000+ high-yield MCQs across all 19 NEET PG subjects, framed in the "
+            "clinical vignette style of the actual exam — including Medicine, Surgery, Pathology, "
+            "Pharmacology, PSM, and more. Subject-wise tests, full-length mock tests, and clinical "
+            "case simulations are all included. The Smart Recovery Engine detects your weak areas and "
+            "guides systematic recovery with AI-powered analytics, flashcards, spaced repetition, "
+            "and PYQ mapping. Performance analytics highlight which specialties need more attention, "
+            "and rank tracking lets you compare your standing with other NEET PG aspirants. "
+            "Includes a 7-day free trial to explore all AI features before subscribing. "
+            "A solid choice for interns and fresh MBBS graduates beginning their PG prep journey."
+        ),
+        "exam": "NEET PG",
+        "price": 14999,
+        "is_free": False,
+        "is_flagship": True,
+        "free_questions_per_test": 30,
+        "free_daily_test_limit": 4,
+        "free_trial_days": 7,            # 7-day free trial per PG doc
+        "questions_per_test": 45,
+        "daily_test_limit": 6,
+        "validity_days": 365,            # 1 year
+        "keypoints": [
+            "1 year access",
+            "12,000+ high-yield NEET PG MCQs",
+            "Clinical case simulations",
+            "Smart Recovery Engine — AI weak area detection",
+            "Subject-wise tests & full mock tests",
+            "Flashcards, spaced repetition & PYQ mapping",
+            "Performance analytics & rank tracking",
+            "7-day free trial",
+        ],
+    },
+    {
+        # ── NEET PG PLATINUM ─────────────────────────────────────────────────
+        # Smart Recovery Engine Platinum for NEET PG — 1 year, ₹24,999.
+        # Everything in Gold plus advanced AI analytics, rank prediction, adaptive difficulty.
+        "title": "NEET PG PLATINUM",
+        "description": (
+            "The most intensive NEET PG AI preparation — 12,000+ MCQs, dynamic AIR rank prediction, "
+            "personalised recovery plans, and adaptive difficulty testing. 1 year access."
+        ),
+        "detailed_description": (
+            "Smart Recovery Engine Platinum for NEET PG is the most intensive AI-powered preparation "
+            "experience for NEET PG and NExT — designed for aspirants who want dynamic rank prediction, "
+            "personalised recovery plans, and elite adaptive intelligence. "
+            "Everything in the Gold plan is included, plus: Advanced AI Analytics that go beyond "
+            "subject-level tracking to provide deep topic-wise insights; Dynamic Rank Prediction that "
+            "models your AIR trajectory based on real performance data; Personalised Recovery Plans "
+            "built around your specific weak subjects and error patterns; Adaptive Difficulty Testing "
+            "that calibrates question complexity to your current preparation level; an AI Revision "
+            "Scheduler that builds a structured revision timeline around your exam date; an Advanced "
+            "Mock Ecosystem with clinical decision simulations; Premium Recovery Sessions for targeted "
+            "concept strengthening; and Priority Support. "
+            "Practice with 75 questions per test across all 19 NEET PG subjects from a 12,000+ MCQ "
+            "bank that is continuously updated with exam recalls, new clinical guidelines, and "
+            "high-yield flagged topics. Includes a 7-day free trial. "
+            "Recommended for serious PG aspirants who want a full-year, data-driven preparation "
+            "strategy aimed at AIR optimisation."
+        ),
+        "exam": "NEET PG",
+        "price": 24999,
+        "is_free": False,
+        "is_flagship": True,
+        "free_questions_per_test": 30,
+        "free_daily_test_limit": 4,
+        "free_trial_days": 7,            # 7-day free trial per PG doc
+        "questions_per_test": 75,
+        "daily_test_limit": 6,
+        "validity_days": 365,            # 1 year
+        "keypoints": [
+            "1 year access",
+            "12,000+ high-yield NEET PG MCQs",
+            "Advanced AI analytics & AIR rank prediction",
+            "Personalised recovery plans",
+            "Adaptive difficulty testing",
+            "AI revision scheduler",
+            "Clinical decision simulations",
+            "Priority support",
+            "7-day free trial",
+        ],
+    },
+    {
+        # ── CRASH COURSE (15 Days) ────────────────────────────────────────────
+        # Free course — Smart Recovery Engine 15-day programme.
+        # No payment, no upgrade path. Access expires after 15 days.
         # free_* limits are permanent (not just trial limits).
-        # After 30 days → locked permanently.
         "title": "Crash Course",
         "description": (
-            "The Crash Course is a free, high-intensity revision programme designed for NEET aspirants "
-            "in the final stretch before the exam. Over 30 days, practise with 75 high-yield questions "
-            "per session — carefully selected from the most frequently tested topics across Physics, "
-            "Chemistry, and Biology. Every question comes with a detailed explanation so you can quickly "
-            "understand concepts without going back to textbooks. The format is built for speed: short, "
-            "focused tests that fit into a busy last-minute revision schedule. No payment required — "
-            "just enrol and start practising immediately. Best used alongside your existing study material "
-            "as a final confidence booster before exam day."
+            "Free 15-day AI-powered NEET revision sprint — 5,200+ high-yield MCQs, adaptive recovery "
+            "engine, and weak area analytics. No payment required."
+        ),
+        "detailed_description": (
+            "Smart Recovery Engine 15-Day Crash Course is a free, high-intensity NEET revision "
+            "programme by Empowered Academy — designed for students in the final stretch before "
+            "the exam. This is more than a test series: it is an intelligent NEET rank recovery "
+            "ecosystem. The platform continuously analyses your mock test performance, MCQ mistakes, "
+            "weak concepts, retention gaps, and revision patterns, then guides you toward the areas "
+            "that need immediate improvement. "
+            "Get access to 5,200+ carefully curated Physics, Chemistry, and Biology MCQs focused on "
+            "NEET weightage, PYQ patterns, and AIR-level concepts. Adaptive mock tests and weak area "
+            "analytics identify weak chapters, recurring mistakes, conceptual gaps, and "
+            "low-confidence zones — helping you revise smarter instead of studying blindly. "
+            "No payment required. Just enrol and start your 15-day recovery sprint immediately. "
+            "Best used alongside your existing study material as a focused final revision booster "
+            "before exam day."
         ),
         "exam": "CRASH COURSE",
         "price": 0,
-        "is_free": True,             # enrollment status = "free", no payment needed
+        "is_free": True,
         "is_flagship": False,
-        "free_questions_per_test": 75,   # generous for revision
+        "free_questions_per_test": 75,
         "free_daily_test_limit": 3,
-        "free_trial_days": 30,           # 30-day access window
-        "questions_per_test": None,      # not used (no paid state)
-        "daily_test_limit": None,        # not used
-        "validity_days": None,           # not used
+        "free_trial_days": 15,           # 15-day access window (changed from 30)
+        "questions_per_test": None,
+        "daily_test_limit": None,
+        "validity_days": None,
         "keypoints": [
-            "30-day access",
-            "75 questions per test",
-            "3 tests per day",
-            "High-yield questions",
-            "Quick revision format",
+            "15-day access",
+            "5,200+ high-quality NEET MCQs",
+            "Adaptive mock tests & weak area analytics",
+            "AI-powered recovery engine",
+            "PYQ patterns & AIR-level concepts",
             "No payment required",
         ],
     },
@@ -260,6 +318,7 @@ for data in courses_data:
     # Apply all fields (works for both insert and update)
     course.title = data["title"]
     course.description = data["description"]
+    course.detailed_description=data["detailed_description"]
     course.exam = data["exam"]
     course.price = data["price"]
     course.is_free = data["is_free"]
