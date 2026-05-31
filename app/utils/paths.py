@@ -11,8 +11,10 @@ def data_path(filename: str) -> str:
     return os.path.join(DATA_DIR, filename)
 
 
-# UG dataset  : NEET_UG_FINAL_INTEGRATED.json
-# PG dataset  : NEET_PG_MASTER_FINAL.json   (name used in PG engine)
-# Place both files in backend/app/data/ before deploying.
-NEET_UG_DATA_PATH = data_path("NEET_UG_FINAL_INTEGRATED.json")
-NEET_PG_DATA_PATH = data_path("NEET_PG_MASTER_FINAL.json")
+# All 5 courses currently share one question set.
+# Swap individual paths later when separate datasets are ready.
+SHARED_DATA_PATH = data_path("NEET_MCQ_Clean_5227_v5_Final .json")
+
+NEET_UG_DATA_PATH    = SHARED_DATA_PATH
+NEET_PG_DATA_PATH    = SHARED_DATA_PATH
+NEET_CRASH_DATA_PATH = SHARED_DATA_PATH
