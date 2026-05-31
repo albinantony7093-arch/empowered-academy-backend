@@ -231,10 +231,16 @@ def enroll_in_course(
 def _set_initial_enrollment(enrollment: Enrollment, course: Course) -> None:
     """Set payment_status and expiry based on course type."""
     now = datetime.now(timezone.utc)
-    days = course.free_trial_days or 4
 
-    expiry = (now + timedelta(days=days)).replace(hour=23, minute=59, second=59, microsecond=0)
-    enrollment.payment_status = "free" if course.is_free else "trial"
+    if course.is_free and course.title == "Crash Course":
+        # Crash Course: fixed expiry on June 21 2026 end of day (IST = UTC+5:30)
+        expiry = datetime(2026, 6, 21, 18, 29, 59, tzinfo=timezone.utc)  # 23:59:59 IST
+        enrollment.payment_status = "free"
+    else:
+        days = course.free_trial_days or 4
+        expiry = (now + timedelta(days=days)).replace(hour=23, minute=59, second=59, microsecond=0)
+        enrollment.payment_status = "free" if course.is_free else "trial"
+
     enrollment.trial_ends_at = expiry
 
 

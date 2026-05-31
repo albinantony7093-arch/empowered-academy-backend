@@ -1,19 +1,14 @@
 """
-question_engine.py — Unified NEET UG + PG question loader and evaluator.
+question_engine.py — Unified question loader and evaluator for all 5 courses.
 
-Real UG JSON format:
-    {"question_bank": [{"subject": "BIOLOGY", "module": "CELL_BIOLOGY", "mcqs": [
-        {"id": "CELL_BIOLOGY_Q1", "question": "...", "options": ["A","B","C","D"],
-         "answer": "D", "explanation": "...", "difficulty": "easy", "time_sec": 60}
-    ]}]}
-
-Real PG JSON format (flat list):
-    [{"question_id": "M12_001", "question": "...",
+Current JSON format (shared across all courses — neet 1.json):
+    [{"id": "BIO-001", "subject": "Biology", "topic": "...",
+      "difficulty": "easy"|"moderate"|"hard",
+      "question": "...",
       "option_a": "...", "option_b": "...", "option_c": "...", "option_d": "...",
-      "correct_answer": "A", "subject": "Medicine", "module": "DEC",
-      "system": "...", "difficulty": "H", "explanation": "..."}]
+      "answer": "B", "explanation": "..."}]
 
-Both normalised to internal shape:
+All normalised to internal shape:
     {
         "question_id":    str,
         "question":       str,
@@ -21,89 +16,56 @@ Both normalised to internal shape:
         "correct_answer": str,   # "A" | "B" | "C" | "D"
         "subject":        str,
         "topic":          str,
-        "difficulty":     str,
+        "difficulty":     str,   # "easy" | "moderate" | "hard"
         "explanation":    str,
     }
+
+Scoring: easy=1, moderate/medium=2, hard=3
+
+NOTE: All 5 courses share one dataset for now.
+      To use separate datasets per exam, update paths.py and restore
+      individual loaders (_load_ug, _load_pg) with their original formats.
 """
 import json
 import random
 import logging
 import threading
-from app.utils.paths import NEET_UG_DATA_PATH, NEET_PG_DATA_PATH
+from app.utils.paths import NEET_UG_DATA_PATH, NEET_PG_DATA_PATH, NEET_CRASH_DATA_PATH
 
 logger = logging.getLogger(__name__)
 
-_UG_LIST: list[dict] = []
-_PG_LIST: list[dict] = []
-_UG_MAP:  dict[str, dict] = {}
-_PG_MAP:  dict[str, dict] = {}
+# Each exam type gets its own pool/map so swapping datasets later is isolated.
+# For now all three paths point to the same file (see paths.py).
+_POOLS: dict[str, list[dict]] = {"UG": [], "PG": [], "CRASH COURSE": []}
+_MAPS:  dict[str, dict[str, dict]] = {"UG": {}, "PG": {}, "CRASH COURSE": {}}
+_loaded: set[str] = set()
 _lock = threading.Lock()
 
-
-def _load_ug() -> None:
-    """Load and normalise UG dataset — thread-safe."""
-    global _UG_LIST, _UG_MAP
-    if _UG_LIST:
-        return
-    with _lock:
-        if _UG_LIST:  # double-checked locking
-            return
-        with open(NEET_UG_DATA_PATH, "r", encoding="utf-8") as f:
-            raw = json.load(f)
-
-    items: list[dict] = []
-    for module in raw.get("question_bank", []):
-        subj  = module.get("subject", "").title()   # normalise BIOLOGY -> Biology
-        topic = module.get("module", "")
-        for q in module.get("mcqs", []):
-            # UG options are a list ["A","B","C","D"] — actual option text IS the letter
-            # The option labels are the answer choices; answer is "A"/"B"/"C"/"D"
-            opts = q.get("options", ["A", "B", "C", "D"])
-            answer = q.get("answer", "")
-            if answer not in ("A", "B", "C", "D"):
-                continue  # skip malformed
-            items.append({
-                "question_id":    str(q["id"]),
-                "question":       q.get("question", ""),
-                "options":        {
-                    "A": opts[0] if len(opts) > 0 else "A",
-                    "B": opts[1] if len(opts) > 1 else "B",
-                    "C": opts[2] if len(opts) > 2 else "C",
-                    "D": opts[3] if len(opts) > 3 else "D",
-                },
-                "correct_answer": answer,
-                "subject":        subj,
-                "topic":          topic,
-                "difficulty":     q.get("difficulty", ""),
-                "explanation":    q.get("explanation", ""),
-            })
-
-    _UG_LIST = items
-    _UG_MAP  = {item["question_id"]: item for item in items}
-    logger.info(f"UG dataset loaded: {len(_UG_LIST)} questions across "
-                f"{len(set(i['subject'] for i in items))} subjects")
+_EXAM_PATHS = {
+    "UG":           NEET_UG_DATA_PATH,
+    "PG":           NEET_PG_DATA_PATH,
+    "CRASH COURSE": NEET_CRASH_DATA_PATH,
+}
 
 
-def _load_pg() -> None:
-    """Load and normalise PG dataset — thread-safe."""
-    global _PG_LIST, _PG_MAP
-    if _PG_LIST:
-        return
-    with _lock:
-        if _PG_LIST:  # double-checked locking
-            return
-        with open(NEET_PG_DATA_PATH, "r", encoding="utf-8") as f:
-            raw = json.load(f)
-
+def _parse_flat_list(raw: list) -> tuple[list[dict], int]:
+    """
+    Parse the shared flat-list JSON format:
+        id / question_id  → question_id
+        answer / correct_answer → correct_answer (must be A/B/C/D)
+        option_a/b/c/d    → options dict
+        difficulty        → easy | moderate | medium | hard
+    """
     items: list[dict] = []
     skipped = 0
     for q in raw:
-        answer = q.get("correct_answer", "").strip()
+        # Support both field name variants
+        answer = (q.get("answer") or q.get("correct_answer") or "").strip().upper()
         if answer not in ("A", "B", "C", "D"):
             skipped += 1
-            continue  # skip 3384 empty + 670 free-text answers
+            continue
         items.append({
-            "question_id":    str(q.get("question_id", "")),
+            "question_id":    str(q.get("id") or q.get("question_id") or ""),
             "question":       q.get("question", ""),
             "options":        {
                 "A": q.get("option_a", ""),
@@ -113,35 +75,43 @@ def _load_pg() -> None:
             },
             "correct_answer": answer,
             "subject":        q.get("subject", ""),
-            "topic":          q.get("module", ""),
-            "difficulty":     q.get("difficulty", ""),
+            "topic":          q.get("topic") or q.get("module", ""),
+            "difficulty":     (q.get("difficulty") or "easy").lower(),
             "explanation":    q.get("explanation", ""),
         })
-
-    _PG_LIST = items
-    _PG_MAP  = {item["question_id"]: item for item in items}
-    logger.info(f"PG dataset loaded: {len(_PG_LIST)} usable questions "
-                f"({skipped} skipped — missing/non-ABCD answers)")
+    return items, skipped
 
 
 def load_exam(exam: str) -> None:
-    """Pre-load dataset. Idempotent."""
-    if exam == "UG":
-        _load_ug()
-    elif exam == "PG":
-        _load_pg()
-    else:
+    """Pre-load dataset for the given exam type. Idempotent."""
+    if exam not in _EXAM_PATHS:
         raise ValueError(f"Unknown exam type: {exam!r}")
+    if exam in _loaded:
+        return
+    with _lock:
+        if exam in _loaded:
+            return
+        path = _EXAM_PATHS[exam]
+        with open(path, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+
+        # raw is always a flat list in the current shared format
+        items, skipped = _parse_flat_list(raw)
+        _POOLS[exam] = items
+        _MAPS[exam]  = {item["question_id"]: item for item in items}
+        _loaded.add(exam)
+        logger.info(f"{exam} dataset loaded: {len(items)} questions "
+                    f"({skipped} skipped) from {path}")
 
 
 def generate_questions(exam: str, limit: int = 50) -> list[dict]:
     """Return a random sample of questions for the given exam."""
     load_exam(exam)
-    pool = _UG_LIST if exam == "UG" else _PG_LIST
+    pool = _POOLS[exam]
     if not pool:
         raise FileNotFoundError(f"No questions loaded for exam={exam!r}")
     sample = random.sample(pool, min(limit, len(pool)))
-    # Return safe copy — strip correct_answer for client
+    # Strip correct_answer before sending to client
     return [
         {
             "question_id": q["question_id"],
@@ -158,33 +128,37 @@ def generate_questions(exam: str, limit: int = 50) -> list[dict]:
 def get_question(exam: str, question_id: str) -> dict | None:
     """Return full question dict (including answer) by ID."""
     load_exam(exam)
-    mapping = _UG_MAP if exam == "UG" else _PG_MAP
-    return mapping.get(question_id)
+    return _MAPS[exam].get(question_id)
 
 
 _DIFFICULTY_MARKS = {
-    # UG format
-    "easy":   1,
-    "medium": 2,
-    "hard":   3,
-    # PG format
+    "easy":     1,
+    "medium":   2,
+    "moderate": 2,
+    "hard":     3,
+    # PG single-letter codes (kept for future PG dataset)
     "l": 1,
     "m": 2,
     "h": 3,
 }
 
+
 def _marks_for_difficulty(difficulty: str) -> int:
-    """Return marks awarded for a correct answer based on difficulty level."""
+    """easy=1, moderate/medium=2, hard=3. Defaults to 1 if unknown."""
     return _DIFFICULTY_MARKS.get(difficulty.strip().lower(), 1)
 
 
-def evaluate_answers(exam: str, answers: dict[str, str], all_questions: list[dict] | None = None) -> dict:
+def evaluate_answers(
+    exam: str,
+    answers: dict[str, str],
+    all_questions: list[dict] | None = None,
+) -> dict:
     """
     Score answers dict {question_id: selected_letter}.
-    Marks are weighted by difficulty: easy=1, medium=2, hard=3.
+    Marks weighted by difficulty: easy=1, medium/moderate=2, hard=3.
 
-    all_questions: full list of {question_id, difficulty} for the test (all 30).
-    If provided, max_marks is computed from all questions regardless of how many were answered.
+    all_questions: full list of {question_id, difficulty} for the test.
+    If provided, max_marks covers all questions regardless of how many were answered.
     """
     load_exam(exam)
     correct   = 0
@@ -194,21 +168,19 @@ def evaluate_answers(exam: str, answers: dict[str, str], all_questions: list[dic
     topic_stats: dict[str, dict] = {}
     per_answer: list[dict] = []
 
-    # Compute max_marks from the full question set if provided
     if all_questions:
         for q_meta in all_questions:
             q = get_question(exam, q_meta["question_id"])
             if q:
                 max_marks += _marks_for_difficulty(q_meta.get("difficulty") or q.get("difficulty", ""))
-    
+
     for q_id, selected in answers.items():
         q = get_question(exam, q_id)
         if not q:
             logger.warning(f"Q {q_id!r} not found in {exam} — skipped")
             continue
-        total     += 1
-        q_marks    = _marks_for_difficulty(q.get("difficulty", ""))
-        # Only add to max_marks if we didn't already compute from all_questions
+        total  += 1
+        q_marks = _marks_for_difficulty(q.get("difficulty", ""))
         if not all_questions:
             max_marks += q_marks
         is_correct = selected.strip().upper() == q["correct_answer"]
