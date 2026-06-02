@@ -103,7 +103,7 @@ def list_courses(
     current_user=Depends(get_current_user_optional),
 ):
     """Public — list all active courses with enrollment status."""
-    courses = db.query(Course).all()
+    courses = db.query(Course).filter(Course.is_active == True).all()
 
     enrollment_map = {}
     if current_user:
