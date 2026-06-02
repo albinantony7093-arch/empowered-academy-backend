@@ -2,7 +2,7 @@ import random
 import logging
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -41,7 +41,7 @@ def _generate_otp() -> str:
 # ── Step 1: Register → send OTP ──────────────────────────────────────────────
 
 @router.post("/register")
-async def register(payload: UserCreate, db: Session = Depends(get_db)):
+async def register(payload: UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """
     Accepts registration details, sends a 6-digit OTP to the email.
     Does NOT create the user yet — call /verify-otp to complete registration.
@@ -73,12 +73,7 @@ async def register(payload: UserCreate, db: Session = Depends(get_db)):
 
     db.commit()
 
-    try:
-        await send_otp_email(payload.email, otp)
-    except Exception as e:
-        logger.error(f"Failed to send OTP email to {payload.email}: {e}")
-        raise HTTPException(status_code=503, detail="Failed to send OTP email. Try again.")
-
+    background_tasks.add_task(send_otp_email, payload.email, otp)
     return {"message": f"OTP sent to {payload.email}. Valid for {OTP_EXPIRY_MINUTES} minutes."}
 
 
@@ -153,7 +148,7 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
 # ── Forgot Password ───────────────────────────────────────────────────────────
 
 @router.post("/forgot-password")
-async def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+async def forgot_password(payload: ForgotPasswordRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """Send a password-reset OTP to the given email (silent if user not found)."""
     user = db.query(User).filter(User.email == payload.email).first()
     if not user:
@@ -172,12 +167,7 @@ async def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(
 
     db.commit()
 
-    try:
-        await send_password_reset_email(payload.email, otp)
-    except Exception as e:
-        logger.error(f"Failed to send reset OTP to {payload.email}: {e}")
-        raise HTTPException(status_code=503, detail="Failed to send OTP email. Try again.")
-
+    background_tasks.add_task(send_password_reset_email, payload.email, otp)
     return {"message": "If this email is registered, an OTP has been sent."}
 
 
