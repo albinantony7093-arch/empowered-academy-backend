@@ -16,11 +16,10 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: List[str]       = ["*"]
 
     # Mail
-    MAIL_USERNAME: str = ""
-    MAIL_PASSWORD: str = ""
-    MAIL_FROM:     str = ""
-    MAIL_SERVER:   str = "smtp.gmail.com"
-    MAIL_PORT:     int = 587
+    MAIL_FROM:     str = "noreply@empoweredacademy.in"
+
+    # Resend
+    RESEND_API_KEY: str = ""
 
     # Frontend
     FRONTEND_URL: str = "https://learn.empoweredacademy.in"

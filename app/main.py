@@ -34,7 +34,7 @@ if settings.SENTRY_DSN:
     )
     logger.info("Sentry initialised")
 
-app = FastAPI(title="Empowered Academy API", version="1.3.0", docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(title="Empowered Academy API", version="1.3.0")
 
 
 def _register_models() -> None:
@@ -181,8 +181,17 @@ async def _crash_course_tick() -> None:
                 db.commit()
                 logger.info("Crash Course activated")
 
-            # Send emails exactly once per process lifetime
+            # Send emails exactly once — use DB flag to guard across all workers
             if not _crash_course_notified:
+                from sqlalchemy import text
+                with engine.connect() as conn:
+                    result = conn.execute(text("SELECT pg_try_advisory_lock(123456789)"))
+                    got_lock = result.scalar()
+
+                if not got_lock:
+                    logger.info("Another worker is sending crash course emails — skipping")
+                    _crash_course_notified = True
+                    return
                 ends_local = end.astimezone(
                     datetime.fromisoformat(settings.CRASH_COURSE_END).tzinfo
                 )
