@@ -206,7 +206,7 @@ courses_data = [
             "Subject-wise tests & full mock tests",
             "Flashcards, spaced repetition & PYQ mapping",
             "Performance analytics & rank tracking",
-            "7-day free trial",
+            "4-day free trial",
         ],
     },
     {
@@ -255,7 +255,7 @@ courses_data = [
             "AI revision scheduler",
             "Clinical decision simulations",
             "Priority support",
-            "7-day free trial",
+            "4-day free trial",
         ],
     },
     {
@@ -323,7 +323,8 @@ for data in courses_data:
     course.price = data["price"]
     course.is_free = data["is_free"]
     course.is_flagship = data["is_flagship"]
-    course.is_active = True
+    # Crash Course starts inactive; scheduler will activate it during its window
+    course.is_active = False if data["title"] == "Crash Course" else True
     course.keypoints = data["keypoints"]
     course.free_questions_per_test = data["free_questions_per_test"]
     course.free_daily_test_limit = data["free_daily_test_limit"]

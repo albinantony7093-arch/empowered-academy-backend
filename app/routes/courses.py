@@ -9,7 +9,7 @@ import json
 from app.core.database import get_db
 from app.core.security import get_current_user, require_page_admin, get_current_user_optional
 from app.models.course import Course, Enrollment
-from app.utils.mail import send_trial_enrollment_email
+from app.utils.mail import send_trial_enrollment_email, send_crash_course_enrollment_email
 from app.models.test_attempt import TestAttempt, AttemptStatus
 from app.models.analytics import TestResult
 from app.models.response import Response
@@ -248,7 +248,10 @@ def _send_enrollment_email(user, course: Course, trial_ends_at) -> None:
     try:
         import asyncio
         end_str = trial_ends_at.strftime("%B %d, %Y") if trial_ends_at else ""
-        asyncio.run(send_trial_enrollment_email(user.email, user.full_name or "", course.title, end_str))
+        if course.is_free and course.title == "Crash Course":
+            asyncio.run(send_crash_course_enrollment_email(user.email, user.full_name or "", end_str))
+        else:
+            asyncio.run(send_trial_enrollment_email(user.email, user.full_name or "", course.title, end_str))
     except Exception as e:
         logger.warning(f"Failed to send enrollment email: {e}")
 

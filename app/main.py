@@ -13,6 +13,9 @@ from app.middleware.logging import request_logging_middleware
 
 import signal
 import sys
+import asyncio
+from datetime import datetime, timezone
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 logging.basicConfig(
     level=logging.INFO,
@@ -134,6 +137,104 @@ app.include_router(profile_router.router,   prefix="/profile",   tags=["profile"
 app.include_router(payment_router.router,   prefix="/payment",   tags=["payment"])
 
 
+# ── Crash Course Scheduler ────────────────────────────────────────────────────
+
+_scheduler = AsyncIOScheduler(timezone="Asia/Kolkata")
+_crash_course_notified = False  # in-process guard so email fires only once
+
+
+async def _crash_course_tick() -> None:
+    """
+    Runs every minute. When the current time enters the crash course window:
+      1. Sets is_active = True on the Crash Course row.
+      2. Emails every student account exactly once.
+    When the window ends:
+      1. Sets is_active = False.
+    """
+    global _crash_course_notified
+
+    now = datetime.now(timezone.utc)
+    start = datetime.fromisoformat(settings.CRASH_COURSE_START)
+    end   = datetime.fromisoformat(settings.CRASH_COURSE_END)
+
+    # Normalise to UTC if offset-aware
+    if start.tzinfo is not None:
+        start = start.astimezone(timezone.utc)
+    if end.tzinfo is not None:
+        end = end.astimezone(timezone.utc)
+
+    from app.core.database import SessionLocal
+    from app.models.course import Course
+    from app.models.user import User
+    from app.utils.mail import send_crash_course_live_email
+
+    db = SessionLocal()
+    try:
+        course = db.query(Course).filter(Course.title == "Crash Course").first()
+        if not course:
+            return
+
+        if start <= now <= end:
+            # Activate if not already
+            if not course.is_active:
+                course.is_active = True
+                db.commit()
+                logger.info("Crash Course activated")
+
+            # Send emails exactly once per process lifetime
+            if not _crash_course_notified:
+                ends_local = end.astimezone(
+                    datetime.fromisoformat(settings.CRASH_COURSE_END).tzinfo
+                )
+                ends_str = ends_local.strftime("%-d %B %Y at %-I:%M %p IST")
+
+                students = db.query(User).filter(User.role == "student").all()
+                logger.info("Sending crash course live emails to %d students", len(students))
+
+                for user in students:
+                    try:
+                        await send_crash_course_live_email(
+                            email=user.email,
+                            full_name=user.full_name or "Student",
+                            ends_at=ends_str,
+                        )
+                    except Exception as mail_err:
+                        logger.warning("Could not email %s: %s", user.email, mail_err)
+
+                _crash_course_notified = True
+                logger.info("Crash course live emails sent")
+
+        else:
+            # Outside window — deactivate
+            if course.is_active:
+                course.is_active = False
+                db.commit()
+                logger.info("Crash Course deactivated")
+            # Reset flag so it fires again if dates are updated
+            if now > end:
+                _crash_course_notified = False
+
+    except Exception as e:
+        logger.error("crash_course_tick error: %s", e, exc_info=True)
+        db.rollback()
+    finally:
+        db.close()
+
+
+@app.on_event("startup")
+async def start_scheduler() -> None:
+    _scheduler.add_job(_crash_course_tick, "interval", minutes=1, id="crash_course_tick")
+    _scheduler.start()
+    logger.info("Crash course scheduler started")
+
+
+@app.on_event("shutdown")
+async def stop_scheduler() -> None:
+    _scheduler.shutdown(wait=False)
+
+
+# ── Health check ──────────────────────────────────────────────────────────────
+
 @app.get("/health", tags=["ops"])
 def health_check():
     from sqlalchemy import text
@@ -144,8 +245,6 @@ def health_check():
     except Exception:
         db_status = "unreachable"
     return {"status": "ok", "version": "1.3.0", "db": db_status}
-
-
 # TODO: Remove this route after verifying Sentry is working
 @app.get("/sentry-debug", tags=["ops"])
 async def trigger_error():
