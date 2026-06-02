@@ -23,12 +23,15 @@ async def _send_email(email: str, subject: str, html_body: str) -> None:
         logger.warning("RESEND_API_KEY not set — email not sent to %s", email)
         raise RuntimeError("Mail service is not configured. Set RESEND_API_KEY in .env")
     resend.api_key = settings.RESEND_API_KEY
-    resend.Emails.send({
+
+    import asyncio
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, lambda: resend.Emails.send({
         "from": f"{BRAND_NAME} <{settings.MAIL_FROM}>",
         "to": [email],
         "subject": subject,
         "html": html_body,
-    })
+    }))
     logger.info("Email sent to %s: %s", email, subject)
 
 # ──────────────────────────────────────────────
