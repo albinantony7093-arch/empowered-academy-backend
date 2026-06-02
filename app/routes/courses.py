@@ -248,16 +248,20 @@ def _send_enrollment_email(user, course: Course, trial_ends_at) -> None:
     import threading
     import asyncio
 
+    email = user.email
+    full_name = user.full_name or ""
     end_str = trial_ends_at.strftime("%B %d, %Y") if trial_ends_at else ""
-    if course.is_free and course.title == "Crash Course":
-        coro = send_crash_course_enrollment_email(user.email, user.full_name or "", end_str)
-    else:
-        coro = send_trial_enrollment_email(user.email, user.full_name or "", course.title, end_str)
+    is_crash = course.is_free and course.title == "Crash Course"
+    course_title = course.title
 
     def _run():
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
+            if is_crash:
+                coro = send_crash_course_enrollment_email(email, full_name, end_str)
+            else:
+                coro = send_trial_enrollment_email(email, full_name, course_title, end_str)
             loop.run_until_complete(coro)
         except Exception as e:
             logger.warning(f"Failed to send enrollment email: {e}")
