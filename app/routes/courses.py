@@ -245,20 +245,22 @@ def _set_initial_enrollment(enrollment: Enrollment, course: Course) -> None:
 
 
 def _send_enrollment_email(user, course: Course, trial_ends_at) -> None:
-    try:
-        import asyncio
-        end_str = trial_ends_at.strftime("%B %d, %Y") if trial_ends_at else ""
-        if course.is_free and course.title == "Crash Course":
-            coro = send_crash_course_enrollment_email(user.email, user.full_name or "", end_str)
-        else:
-            coro = send_trial_enrollment_email(user.email, user.full_name or "", course.title, end_str)
+    import threading
+    import asyncio
+
+    end_str = trial_ends_at.strftime("%B %d, %Y") if trial_ends_at else ""
+    if course.is_free and course.title == "Crash Course":
+        coro = send_crash_course_enrollment_email(user.email, user.full_name or "", end_str)
+    else:
+        coro = send_trial_enrollment_email(user.email, user.full_name or "", course.title, end_str)
+
+    def _run():
         try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(coro)
-        except RuntimeError:
             asyncio.run(coro)
-    except Exception as e:
-        logger.warning(f"Failed to send enrollment email: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to send enrollment email: {e}")
+
+    threading.Thread(target=_run, daemon=True).start()
 
 
 # ── My Courses ────────────────────────────────────────────────────────────────
