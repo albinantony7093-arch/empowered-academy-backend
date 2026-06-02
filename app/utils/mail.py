@@ -346,8 +346,11 @@ async def send_payment_failed_email(
 # ──────────────────────────────────────────────
 # Crash Course Live Template
 # ──────────────────────────────────────────────
-def _crash_course_live_template(full_name: str, ends_at: str) -> str:
+def _crash_course_live_template(full_name: str, ends_at: str, email: str = "") -> str:
+    import urllib.parse
     course_url = f"{settings.FRONTEND_URL}/courses"
+    if email:
+        course_url += f"?email={urllib.parse.quote(email)}"
     content = f"""
 <h2 style="color:{BRAND_DARK};margin-top:0;font-size:22px;">&#127775; The Crash Course is Now LIVE!</h2>
 <p>Hi <strong>{full_name}</strong>,</p>
@@ -382,15 +385,18 @@ def _crash_course_live_template(full_name: str, ends_at: str) -> str:
 
 
 async def send_crash_course_live_email(email: str, full_name: str, ends_at: str) -> None:
-    html = _crash_course_live_template(full_name, ends_at)
+    html = _crash_course_live_template(full_name, ends_at, email=email)
     await _send_email(email, subject=f"&#127775; NEET Crash Course is Now Live — {BRAND_NAME}", html_body=html)
 
 
 # ──────────────────────────────────────────────
 # Crash Course Enrollment Template
 # ──────────────────────────────────────────────
-def _crash_course_enrollment_template(full_name: str, ends_at: str) -> str:
+def _crash_course_enrollment_template(full_name: str, ends_at: str, email: str = "") -> str:
+    import urllib.parse
     course_url = f"{settings.FRONTEND_URL}/courses"
+    if email:
+        course_url += f"?email={urllib.parse.quote(email)}"
     content = f"""
 <h2 style="color:{BRAND_DARK};margin-top:0;font-size:22px;">&#128640; You’re Enrolled in the Crash Course!</h2>
 <p>Hi <strong>{full_name}</strong>,</p>
@@ -420,5 +426,5 @@ def _crash_course_enrollment_template(full_name: str, ends_at: str) -> str:
 
 
 async def send_crash_course_enrollment_email(email: str, full_name: str, ends_at: str) -> None:
-    html = _crash_course_enrollment_template(full_name, ends_at)
+    html = _crash_course_enrollment_template(full_name, ends_at, email=email)
     await _send_email(email, subject=f"Successfully Enrolled in Crash Course — {BRAND_NAME}", html_body=html)
