@@ -20,8 +20,7 @@ email-validator==2.3.0
 python-dotenv==1.0.1
 
 # Mail
-fastapi-mail==1.6.2
-aiosmtplib==5.1.0
+resend==2.3.0
 
 # AI
 openai==1.30.1

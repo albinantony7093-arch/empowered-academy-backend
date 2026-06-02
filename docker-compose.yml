@@ -33,6 +33,9 @@ services:
     restart: on-failure
     environment:
       WORKERS: "4"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     volumes:
       - ./app:/app/app
       - ./scripts:/app/scripts

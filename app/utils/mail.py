@@ -1,4 +1,4 @@
-from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
+import resend
 from app.core.config import settings
 import logging
 
@@ -16,21 +16,20 @@ REFUND_EMAIL   = "refunds@empoweredacademy.in"
 POWERED_BY     = "Powered by Red Cross Academy, Kottayam, Kerala"
 
 # ──────────────────────────────────────────────
-# Mail config
+# Core send helper (Resend)
 # ──────────────────────────────────────────────
-def _get_mail_config() -> ConnectionConfig | None:
-    if not settings.MAIL_USERNAME or settings.MAIL_USERNAME.startswith("your_"):
-        return None
-    return ConnectionConfig(
-        MAIL_USERNAME=settings.MAIL_USERNAME,
-        MAIL_PASSWORD=settings.MAIL_PASSWORD,
-        MAIL_FROM=settings.MAIL_FROM,
-        MAIL_PORT=settings.MAIL_PORT,
-        MAIL_SERVER=settings.MAIL_SERVER,
-        MAIL_STARTTLS=True,
-        MAIL_SSL_TLS=False,
-        USE_CREDENTIALS=True,
-    )
+async def _send_email(email: str, subject: str, html_body: str) -> None:
+    if not settings.RESEND_API_KEY:
+        logger.warning("RESEND_API_KEY not set — email not sent to %s", email)
+        raise RuntimeError("Mail service is not configured. Set RESEND_API_KEY in .env")
+    resend.api_key = settings.RESEND_API_KEY
+    resend.Emails.send({
+        "from": f"{BRAND_NAME} <{settings.MAIL_FROM}>",
+        "to": [email],
+        "subject": subject,
+        "html": html_body,
+    })
+    logger.info("Email sent to %s: %s", email, subject)
 
 # ──────────────────────────────────────────────
 # Base HTML layout
@@ -293,25 +292,6 @@ def _payment_failed_template(full_name: str, course_title: str, transaction_id: 
 <hr style="border:none;border-top:1px solid #eeeeee;margin:24px 0;"/>
 <p style="font-size:13px;color:#999;">We apologise for the inconvenience. Our team is here to help you.</p>"""
     return _base_template(f"Payment Issue — {BRAND_NAME}", content)
-
-# ──────────────────────────────────────────────
-# Core send helper
-# ──────────────────────────────────────────────
-async def _send_email(email: str, subject: str, html_body: str) -> None:
-    conf = _get_mail_config()
-    if conf is None:
-        logger.warning("Mail not configured — email not sent to %s", email)
-        raise RuntimeError(
-            "Mail service is not configured. "
-            "Set MAIL_USERNAME, MAIL_PASSWORD, and MAIL_FROM in .env"
-        )
-    message = MessageSchema(
-        subject=subject,
-        recipients=[email],
-        body=html_body,
-        subtype=MessageType.html,
-    )
-    await FastMail(conf).send_message(message)
 
 # ──────────────────────────────────────────────
 # Public API
