@@ -152,7 +152,7 @@ async def forgot_password(payload: ForgotPasswordRequest, background_tasks: Back
     """Send a password-reset OTP to the given email (silent if user not found)."""
     user = db.query(User).filter(User.email == payload.email).first()
     if not user:
-        return {"message": "If this email is registered, an OTP has been sent."}
+        raise HTTPException(status_code=404, detail="No account found with this email.")
 
     otp        = _generate_otp()
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=OTP_EXPIRY_MINUTES)
