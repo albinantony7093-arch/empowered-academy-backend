@@ -38,3 +38,6 @@ anyio==4.13.0
 
 # Monitoring
 sentry-sdk[fastapi]==2.26.0
+
+# Scheduling
+APScheduler==3.10.4

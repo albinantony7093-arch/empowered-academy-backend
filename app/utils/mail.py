@@ -358,3 +358,84 @@ async def send_payment_failed_email(
 ) -> None:
     html = _payment_failed_template(full_name, course_title, transaction_id)
     await _send_email(email, subject=f"Payment Issue for {course_title} — {BRAND_NAME}", html_body=html)
+
+
+# ──────────────────────────────────────────────
+# Crash Course Live Template
+# ──────────────────────────────────────────────
+def _crash_course_live_template(full_name: str, ends_at: str) -> str:
+    course_url = f"{settings.FRONTEND_URL}/courses"
+    content = f"""
+<h2 style="color:{BRAND_DARK};margin-top:0;font-size:22px;">&#127775; The Crash Course is Now LIVE!</h2>
+<p>Hi <strong>{full_name}</strong>,</p>
+<p>Great news — the <strong>Free 15-Day NEET Crash Course</strong> by {BRAND_NAME} is now active and open for all students!</p>
+
+<div style="background:#f9f9f9;border-left:4px solid {BRAND_COLOR};border-radius:4px;padding:18px 20px;margin:20px 0;">
+  <p style="margin:0;font-size:12px;color:#888;text-transform:uppercase;letter-spacing:1px;">Access Window</p>
+  <p style="margin:6px 0 0;font-size:16px;font-weight:bold;color:{BRAND_DARK};">Open until <span style="color:{BRAND_COLOR};">{ends_at}</span></p>
+</div>
+
+<p>What's inside the Crash Course:</p>
+<ul style="font-size:14px;color:#555;line-height:2;">
+  <li>5,200+ high-yield NEET MCQs (Physics, Chemistry, Biology)</li>
+  <li>Adaptive mock tests &amp; weak area analytics</li>
+  <li>AI-powered recovery engine</li>
+  <li>PYQ patterns &amp; AIR-level concepts</li>
+  <li>No payment required — completely free</li>
+</ul>
+
+<p>Enrol now and kick off your final revision sprint before the exam.</p>
+
+<div style="text-align:center;margin:28px 0;">
+  <a href="{course_url}" style="background:{BRAND_COLOR};color:#ffffff;padding:14px 32px;border-radius:6px;
+                     text-decoration:none;font-weight:bold;font-size:15px;display:inline-block;">
+    Start the Crash Course &#8594;
+  </a>
+</div>
+
+<hr style="border:none;border-top:1px solid #eeeeee;margin:24px 0;"/>
+<p style="font-size:13px;color:#999;">This course is available for a limited time only. Don't miss it!</p>"""
+    return _base_template(f"Crash Course is Live — {BRAND_NAME}", content)
+
+
+async def send_crash_course_live_email(email: str, full_name: str, ends_at: str) -> None:
+    html = _crash_course_live_template(full_name, ends_at)
+    await _send_email(email, subject=f"&#127775; NEET Crash Course is Now Live — {BRAND_NAME}", html_body=html)
+
+
+# ──────────────────────────────────────────────
+# Crash Course Enrollment Template
+# ──────────────────────────────────────────────
+def _crash_course_enrollment_template(full_name: str, ends_at: str) -> str:
+    course_url = f"{settings.FRONTEND_URL}/courses"
+    content = f"""
+<h2 style="color:{BRAND_DARK};margin-top:0;font-size:22px;">&#128640; You’re Enrolled in the Crash Course!</h2>
+<p>Hi <strong>{full_name}</strong>,</p>
+<p>You’ve successfully enrolled in the <strong>Free 15-Day NEET Crash Course</strong> by {BRAND_NAME}.</p>
+
+<div style="background:#f9f9f9;border-left:4px solid {BRAND_COLOR};border-radius:4px;padding:18px 20px;margin:20px 0;">
+  <p style="margin:0;font-size:12px;color:#888;text-transform:uppercase;letter-spacing:1px;">Your Access</p>
+  <p style="margin:6px 0 0;font-size:16px;font-weight:bold;color:{BRAND_DARK};">15 days (until <span style="color:{BRAND_COLOR};">{ends_at}</span>)</p>
+</div>
+
+<p>The course will <strong>go live on June 5, 2026 at 5:00 AM IST</strong>. Once live, you’ll receive another email and can start your revision sprint.</p>
+
+<p>What to expect:</p>
+<ul style="font-size:14px;color:#555;line-height:2;">
+  <li>5,200+ high-yield NEET MCQs (Physics, Chemistry, Biology)</li>
+  <li>Adaptive mock tests &amp; weak area analytics</li>
+  <li>AI-powered recovery engine</li>
+  <li>PYQ patterns &amp; AIR-level concepts</li>
+  <li>No payment required — completely free</li>
+</ul>
+
+<p>Save the date — we’ll see you when the course opens!</p>
+
+<hr style="border:none;border-top:1px solid #eeeeee;margin:24px 0;"/>
+<p style="font-size:13px;color:#999;">If you have any questions, feel free to contact our support team.</p>"""
+    return _base_template(f"Crash Course Enrollment — {BRAND_NAME}", content)
+
+
+async def send_crash_course_enrollment_email(email: str, full_name: str, ends_at: str) -> None:
+    html = _crash_course_enrollment_template(full_name, ends_at)
+    await _send_email(email, subject=f"Successfully Enrolled in Crash Course — {BRAND_NAME}", html_body=html)
