@@ -206,7 +206,7 @@ courses_data = [
             "Subject-wise tests & full mock tests",
             "Flashcards, spaced repetition & PYQ mapping",
             "Performance analytics & rank tracking",
-            "4-day free trial",
+            "7-day free trial",
         ],
     },
     {
@@ -255,7 +255,7 @@ courses_data = [
             "AI revision scheduler",
             "Clinical decision simulations",
             "Priority support",
-            "4-day free trial",
+            "7-day free trial",
         ],
     },
     {
