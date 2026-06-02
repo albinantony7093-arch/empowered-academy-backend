@@ -255,10 +255,14 @@ def _send_enrollment_email(user, course: Course, trial_ends_at) -> None:
         coro = send_trial_enrollment_email(user.email, user.full_name or "", course.title, end_str)
 
     def _run():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         try:
-            asyncio.run(coro)
+            loop.run_until_complete(coro)
         except Exception as e:
             logger.warning(f"Failed to send enrollment email: {e}")
+        finally:
+            loop.close()
 
     threading.Thread(target=_run, daemon=True).start()
 
