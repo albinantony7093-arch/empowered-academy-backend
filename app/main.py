@@ -34,7 +34,7 @@ if settings.SENTRY_DSN:
     )
     logger.info("Sentry initialised")
 
-app = FastAPI(title="Empowered Academy API", version="1.3.0")
+app = FastAPI(title="Empowered Academy API", version="1.3.0", docs_url=None, redoc_url=None, openapi_url=None)
 
 
 def _register_models() -> None:
