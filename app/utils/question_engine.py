@@ -30,7 +30,7 @@ import json
 import random
 import logging
 import threading
-from app.utils.paths import NEET_UG_DATA_PATH, NEET_PG_DATA_PATH, NEET_CRASH_DATA_PATH
+from app.utils.paths import NEET_UG_DATA_PATH, NEET_PG_DATA_PATH, NEET_CRASH_DATA_PATH, DIAGNOSTIC_DATA_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -217,6 +217,121 @@ def evaluate_answers(
         "total_correct":   correct,
         "total_attempted": total,
         "total_questions": len(all_questions) if all_questions else total,
+        "marks":           marks,
+        "max_marks":       max_marks,
+        "accuracy":        accuracy,
+        "weak_areas":      weak_areas,
+        "per_answer":      per_answer,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Diagnostic question pool (separate dataset)
+# ---------------------------------------------------------------------------
+_DIAG_POOL: list[dict] = []
+_DIAG_MAP:  dict[str, dict] = {}
+_diag_loaded = False
+_diag_lock = threading.Lock()
+
+
+def load_diagnostic() -> None:
+    """Pre-load the diagnostic question dataset. Idempotent."""
+    global _diag_loaded
+    if _diag_loaded:
+        return
+    with _diag_lock:
+        if _diag_loaded:
+            return
+        with open(DIAGNOSTIC_DATA_PATH, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        items, skipped = _parse_flat_list(raw)
+        _DIAG_POOL.extend(items)
+        _DIAG_MAP.update({item["question_id"]: item for item in items})
+        _diag_loaded = True
+        logger.info(f"Diagnostic dataset loaded: {len(items)} questions ({skipped} skipped)")
+
+
+def generate_diagnostic_questions(limit: int = 30) -> list[dict]:
+    """Return a random sample of diagnostic questions (default 30)."""
+    load_diagnostic()
+    if not _DIAG_POOL:
+        raise FileNotFoundError("Diagnostic question pool is empty")
+    sample = random.sample(_DIAG_POOL, min(limit, len(_DIAG_POOL)))
+    return [
+        {
+            "question_id": q["question_id"],
+            "question":    q["question"],
+            "options":     q["options"],
+            "subject":     q["subject"],
+            "topic":       q["topic"],
+            "difficulty":  q["difficulty"],
+        }
+        for q in sample
+    ]
+
+
+def get_diagnostic_question(question_id: str) -> dict | None:
+    """Return full diagnostic question dict (including answer) by ID."""
+    load_diagnostic()
+    return _DIAG_MAP.get(question_id)
+
+
+def evaluate_diagnostic_answers(answers: dict[str, str], all_questions: list[dict]) -> dict:
+    """Score diagnostic answers. Same weighting as regular tests."""
+    load_diagnostic()
+    correct   = 0
+    marks     = 0
+    max_marks = 0
+    total     = 0
+    topic_stats: dict[str, dict] = {}
+    per_answer: list[dict] = []
+
+    for q_meta in all_questions:
+        q = get_diagnostic_question(q_meta["question_id"])
+        if q:
+            max_marks += _marks_for_difficulty(q_meta.get("difficulty") or q.get("difficulty", ""))
+
+    for q_id, selected in answers.items():
+        q = get_diagnostic_question(q_id)
+        if not q:
+            logger.warning(f"Diagnostic Q {q_id!r} not found — skipped")
+            continue
+        total  += 1
+        q_marks = _marks_for_difficulty(q.get("difficulty", ""))
+        is_correct = selected.strip().upper() == q["correct_answer"]
+        if is_correct:
+            correct += 1
+            marks   += q_marks
+
+        topic = q["topic"]
+        if topic not in topic_stats:
+            topic_stats[topic] = {"correct": 0, "total": 0, "subject": q["subject"]}
+        topic_stats[topic]["total"]   += 1
+        topic_stats[topic]["correct"] += int(is_correct)
+
+        per_answer.append({
+            "question_id":  q_id,
+            "subject":      q["subject"],
+            "topic":        topic,
+            "difficulty":   q.get("difficulty", ""),
+            "marks":        q_marks,
+            "selected":     selected,
+            "correct":      q["correct_answer"],
+            "is_correct":   is_correct,
+            "marks_earned": q_marks if is_correct else 0,
+            "explanation":  q.get("explanation", ""),
+        })
+
+    accuracy   = round((correct / total) * 100, 1) if total > 0 else 0.0
+    weak_areas = [
+        topic for topic, s in topic_stats.items()
+        if s["total"] > 0 and (s["correct"] / s["total"]) * 100 < 60
+    ]
+
+    return {
+        "total_correct":   correct,
+        "total_attempted": total,
+        "total_questions": len(all_questions),
         "marks":           marks,
         "max_marks":       max_marks,
         "accuracy":        accuracy,
