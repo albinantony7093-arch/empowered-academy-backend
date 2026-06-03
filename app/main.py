@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.core.database import Base, engine
 from app.routes import auth, test, ai, courses as courses_router, profile as profile_router
 from app.routes import analytics as analytics_router, payment as payment_router
+from app.routes import diagnostic as diagnostic_router
 from app.middleware.logging import request_logging_middleware
 
 import signal
@@ -51,6 +52,7 @@ def _register_models() -> None:
     import app.models.otp as _o; assert _o
     import app.models.course as _c; assert _c
     import app.models.payment as _p; assert _p
+    import app.models.diagnostic as _d; assert _d
 
 
 _register_models()
@@ -67,6 +69,12 @@ try:
     _load_exam("PG")
 except Exception as _e:
     logger.warning(f"Could not pre-load question datasets: {_e}")
+
+from app.utils.question_engine import load_diagnostic as _load_diagnostic
+try:
+    _load_diagnostic()
+except Exception as _e:
+    logger.warning(f"Could not pre-load diagnostic dataset: {_e}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -135,6 +143,7 @@ app.include_router(ai.router,               prefix="/ai",        tags=["ai"])
 app.include_router(courses_router.router,   prefix="/courses",   tags=["courses"])
 app.include_router(profile_router.router,   prefix="/profile",   tags=["profile"])
 app.include_router(payment_router.router,   prefix="/payment",   tags=["payment"])
+app.include_router(diagnostic_router.router)
 
 
 # ── Crash Course Scheduler ────────────────────────────────────────────────────
