@@ -398,16 +398,16 @@ def _crash_course_enrollment_template(full_name: str, ends_at: str, email: str =
     if email:
         course_url += f"?email={urllib.parse.quote(email)}"
     content = f"""
-<h2 style="color:{BRAND_DARK};margin-top:0;font-size:22px;">&#128640; You’re Enrolled in the Crash Course!</h2>
+<h2 style="color:{BRAND_DARK};margin-top:0;font-size:22px;">&#128640; You're Enrolled in the Crash Course!</h2>
 <p>Hi <strong>{full_name}</strong>,</p>
-<p>You’ve successfully enrolled in the <strong>Free 15-Day NEET Crash Course</strong> by {BRAND_NAME}.</p>
+<p>You've successfully enrolled in the <strong>Free NEET Crash Course</strong> by {BRAND_NAME}.</p>
 
 <div style="background:#f9f9f9;border-left:4px solid {BRAND_COLOR};border-radius:4px;padding:18px 20px;margin:20px 0;">
   <p style="margin:0;font-size:12px;color:#888;text-transform:uppercase;letter-spacing:1px;">Your Access</p>
-  <p style="margin:6px 0 0;font-size:16px;font-weight:bold;color:{BRAND_DARK};">15 days (until <span style="color:{BRAND_COLOR};">{ends_at}</span>)</p>
+  <p style="margin:6px 0 0;font-size:16px;font-weight:bold;color:{BRAND_DARK};">Until <span style="color:{BRAND_COLOR};">{ends_at} at 10:00 PM IST</span></p>
 </div>
 
-<p>The course will <strong>go live on June 5, 2026 at 5:00 AM IST</strong>. Once live, you’ll receive another email and can start your revision sprint.</p>
+<p>The course is <strong>live now</strong> — jump in and start your revision sprint!</p>
 
 <p>What to expect:</p>
 <ul style="font-size:14px;color:#555;line-height:2;">
@@ -418,7 +418,7 @@ def _crash_course_enrollment_template(full_name: str, ends_at: str, email: str =
   <li>No payment required — completely free</li>
 </ul>
 
-<p>Save the date — we’ll see you when the course opens!</p>
+<p>Make the most of your access — all the best for NEET!</p>
 
 <hr style="border:none;border-top:1px solid #eeeeee;margin:24px 0;"/>
 <p style="font-size:13px;color:#999;">If you have any questions, feel free to contact our support team.</p>"""
