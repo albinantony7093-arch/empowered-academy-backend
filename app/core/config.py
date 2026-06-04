@@ -33,10 +33,6 @@ class Settings(BaseSettings):
     # Sentry
     SENTRY_DSN: str = ""
 
-    # Crash Course schedule (ISO format, e.g. "2026-06-05T05:00:00+05:30")
-    CRASH_COURSE_START: str = "2026-06-05T05:00:00+05:30"
-    CRASH_COURSE_END:   str = "2026-06-21T17:00:00+05:30"
-
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod
     def parse_allowed_origins(cls, v):
