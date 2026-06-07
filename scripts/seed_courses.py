@@ -71,7 +71,7 @@ courses_data = [
         # Smart Recovery Engine Gold — 1 year access.
         # Trial: 4 days, 30 questions/test, 4 tests/day
         # Paid:  1 year, 45 questions/test, 6 tests/day
-        "title": "NEET UG GOLD",
+        "title": "NEET UG",
         "description": (
             "AI-powered NEET UG preparation ecosystem with 10,000+ MCQs, adaptive mock tests, "
             "concept clarity videos, and smart revision tools — 1 year access."
@@ -95,7 +95,7 @@ courses_data = [
             "Ideal for Class 12 students and repeaters targeting the upcoming NEET UG cycle."
         ),
         "exam": "NEET UG",
-        "price": 9999,
+        "price": 4999,
         "is_free": False,
         "is_flagship": True,
         "free_questions_per_test": 30,
@@ -168,7 +168,7 @@ courses_data = [
         # Smart Recovery Engine Gold for NEET PG — 1 year, ₹14,999.
         # Trial: 7 days, 30 questions/test, 4 tests/day
         # Paid:  1 year, 45 questions/test, 6 tests/day
-        "title": "NEET PG GOLD",
+        "title": "NEET PG",
         "description": (
             "AI-powered NEET PG preparation with 12,000+ clinical MCQs, smart recovery engine, "
             "and adaptive analytics — 1 year access with a 7-day free trial."
@@ -189,12 +189,12 @@ courses_data = [
             "A solid choice for interns and fresh MBBS graduates beginning their PG prep journey."
         ),
         "exam": "NEET PG",
-        "price": 14999,
+        "price": 7999,
         "is_free": False,
         "is_flagship": True,
         "free_questions_per_test": 30,
         "free_daily_test_limit": 4,
-        "free_trial_days": 7,            # 7-day free trial per PG doc
+        "free_trial_days": 4,            # 7-day free trial per PG doc
         "questions_per_test": 45,
         "daily_test_limit": 6,
         "validity_days": 365,            # 1 year
@@ -324,7 +324,9 @@ for data in courses_data:
     course.is_free = data["is_free"]
     course.is_flagship = data["is_flagship"]
     # Crash Course starts inactive; scheduler will activate it during its window
-    course.is_active = False if data["title"] == "Crash Course" else True
+    # NEET UG PLATINUM and NEET PG PLATINUM are currently inactive
+    inactive_titles = {"NEET UG PLATINUM", "NEET PG PLATINUM"}
+    course.is_active = data["title"] not in inactive_titles
     course.keypoints = data["keypoints"]
     course.free_questions_per_test = data["free_questions_per_test"]
     course.free_daily_test_limit = data["free_daily_test_limit"]
