@@ -10,6 +10,7 @@ from app.core.database import Base, engine
 from app.routes import auth, test, ai, courses as courses_router, profile as profile_router
 from app.routes import analytics as analytics_router, payment as payment_router
 from app.routes import diagnostic as diagnostic_router
+from app.routes import admin as admin_router
 from app.middleware.logging import request_logging_middleware
 
 import asyncio
@@ -140,6 +141,7 @@ app.include_router(courses_router.router,   prefix="/courses",   tags=["courses"
 app.include_router(profile_router.router,   prefix="/profile",   tags=["profile"])
 app.include_router(payment_router.router,   prefix="/payment",   tags=["payment"])
 app.include_router(diagnostic_router.router)
+app.include_router(admin_router.router)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

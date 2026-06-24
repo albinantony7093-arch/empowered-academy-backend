@@ -36,7 +36,7 @@ def create_refresh_token(data: dict) -> str:
 
 def verify_token(token: str = Depends(oauth2_scheme)) -> str:
     credentials_exception = HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN, detail="Invalid or expired access token"
+        status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired access token"
     )
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
@@ -62,7 +62,7 @@ def verify_refresh_token(token: str) -> str:
         return user_id
     except (JWTError, ValueError):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired refresh token",
         )
 
@@ -74,20 +74,20 @@ def get_current_user(
     from app.models.user import User
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return user
 
 
 def require_admin(user=Depends(get_current_user)):
     if user.role != "admin":
-        raise HTTPException(status_code=500, detail="Admin access required")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return user
 
 
 def require_page_admin(user=Depends(get_current_user)):
     """Allows page_admin or admin roles — limited content management only."""
     if user.role not in ("admin", "page_admin"):
-        raise HTTPException(status_code=500, detail="Access denied")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     return user
 
 

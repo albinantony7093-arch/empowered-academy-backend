@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial,sans-serif;}
+html{font-size:200%;}
+html,body{height:100%;background:#f0f2ff;}
+
+.navbar{background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;padding:0 32px;height:60px;position:sticky;top:0;z-index:10;}
+.brand{color:#fff;font-size:16px;font-weight:700;margin-right:32px;}
+.nav-links{display:flex;align-items:center;gap:4px;flex:1;}
+.nav-link{display:flex;align-items:center;gap:7px;padding:8px 16px;color:rgba(255,255,255,0.75);font-size:13px;cursor:pointer;border-radius:8px;transition:0.15s;}
+.nav-link i{font-size:16px;}
+.nav-link:hover{background:rgba(255,255,255,0.12);color:#fff;}
+.nav-link.active{background:rgba(255,255,255,0.22);color:#fff;}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:12px;}
+.logout-btn{background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;}
+.logout-btn:hover{background:rgba(255,255,255,0.25);}
+.avatar-nav{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;}
+
+.content{padding:28px 36px;}
+.page{display:none;}
+.page.active{display:block;}
+
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:28px;}
+.stat-card{background:#fff;border-radius:12px;padding:22px 24px;border:1px solid #e8e8f0;}
+.stat-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:20px;}
+.si-purple{background:#EEEDFE;color:#534AB7;}
+.si-teal{background:#E1F5EE;color:#0F6E56;}
+.si-amber{background:#FAEEDA;color:#854F0B;}
+.stat-val{font-size:28px;font-weight:700;color:#1a1a2e;}
+.stat-label{font-size:12px;color:#888;margin-top:4px;}
+
+.panel{background:#fff;border-radius:12px;border:1px solid #e8e8f0;overflow:hidden;margin-bottom:20px;}
+.panel-head{padding:16px 22px;border-bottom:1px solid #e8e8f0;display:flex;align-items:center;justify-content:space-between;}
+.panel-title{font-size:14px;font-weight:600;color:#1a1a2e;}
+.search-wrap{display:flex;align-items:center;gap:8px;background:#f5f5fa;border:1px solid #e8e8f0;border-radius:8px;padding:7px 13px;}
+.search-wrap input{border:none;background:transparent;outline:none;font-size:13px;color:#1a1a2e;width:200px;}
+.search-wrap i{font-size:15px;color:#888;}
+
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{padding:11px 22px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#888;background:#f8f8fc;font-weight:600;}
+td{padding:13px 22px;border-bottom:1px solid #f0f0f8;color:#1a1a2e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:#fafafe;}
+
+.pill{display:inline-block;padding:3px 11px;border-radius:20px;font-size:11px;font-weight:600;}
+.pill-green{background:#EAF3DE;color:#3B6D11;}
+.pill-amber{background:#FAEEDA;color:#854F0B;}
+.pill-red{background:#FCEBEB;color:#A32D2D;}
+.pill-blue{background:#E6F1FB;color:#185FA5;}
+.pill-purple{background:#EEEDFE;color:#534AB7;}
+
+.pagination{display:flex;align-items:center;justify-content:space-between;padding:12px 22px;border-top:1px solid #f0f0f8;}
+.pag-info{font-size:12px;color:#888;}
+.pag-btns{display:flex;gap:4px;}
+.pag-btn{background:none;border:1px solid #e0e0ec;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;color:#555;}
+.pag-btn:hover{background:#f5f5fa;}
+.pag-btn.active{background:#667eea;color:#fff;border-color:#667eea;}
+.pag-btn:disabled{opacity:0.4;cursor:default;}
+
+.loading{text-align:center;padding:40px;color:#888;font-size:13px;}
+.error-msg{text-align:center;padding:30px;color:#A32D2D;font-size:13px;}
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <span class="brand">AdminPanel</span>
+  <div class="nav-links">
+    <div class="nav-link active" onclick="showPage('dashboard',this)"><i class="ti ti-home"></i> Dashboard</div>
+    <div class="nav-link" onclick="showPage('users',this)"><i class="ti ti-users"></i> All Users</div>
+    <div class="nav-link" onclick="showPage('courses',this)"><i class="ti ti-book"></i> Courses</div>
+  </div>
+  <div class="nav-right">
+    <button class="logout-btn" onclick="logout()"><i class="ti ti-logout"></i> Logout</button>
+    <div class="avatar-nav">AD</div>
+  </div>
+</nav>
+
+<div class="content">
+
+  <!-- Dashboard -->
+  <div class="page active" id="page-dashboard">
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-icon si-purple"><i class="ti ti-users"></i></div><div class="stat-val" id="stat-students">—</div><div class="stat-label">Total Users</div></div>
+      <div class="stat-card"><div class="stat-icon si-teal"><i class="ti ti-book"></i></div><div class="stat-val" id="stat-courses">—</div><div class="stat-label">Active Courses</div></div>
+      <div class="stat-card"><div class="stat-icon si-amber"><i class="ti ti-chart-bar"></i></div><div class="stat-val" id="stat-enrollments">—</div><div class="stat-label">Enrollments</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">Users Overview</span></div>
+      <table>
+        <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Course</th></tr></thead>
+        <tbody id="dash-body"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
+      </table>
+      <div class="pagination">
+        <span class="pag-info" id="dash-info"></span>
+        <div class="pag-btns" id="dash-pag"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- All Users -->
+  <div class="page" id="page-users">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">All Users</span>
+        <div class="search-wrap"><i class="ti ti-search"></i><input type="text" placeholder="Search users..." oninput="filterUsers(this.value)"></div>
+      </div>
+      <table>
+        <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Course</th></tr></thead>
+        <tbody id="users-body"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
+      </table>
+      <div class="pagination">
+        <span class="pag-info" id="users-info"></span>
+        <div class="pag-btns" id="users-pag"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Courses -->
+  <div class="page" id="page-courses">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">All Courses</span>
+        <div class="search-wrap"><i class="ti ti-search"></i><input type="text" placeholder="Search courses..." oninput="filterCourses(this.value)"></div>
+      </div>
+      <table>
+        <thead><tr><th>#</th><th>Course</th><th>Category</th><th>Enrolled</th><th>Price</th><th>Status</th></tr></thead>
+        <tbody id="courses-body"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
+      </table>
+      <div class="pagination">
+        <span class="pag-info" id="courses-info"></span>
+        <div class="pag-btns" id="courses-pag"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const PAGE_SIZE = 10;
+let allUsers = [], allCourses = [], filteredUsers = [], filteredCourses = [];
+let uPage = 1, cPage = 1, dPage = 1;
+
+// ── Token helpers ─────────────────────────────────────────────────────────────
+const getAccessToken  = () => localStorage.getItem('access_token');
+const getRefreshToken = () => localStorage.getItem('refresh_token');
+function setTokens(access, refresh) {
+  localStorage.setItem('access_token', access);
+  if (refresh) localStorage.setItem('refresh_token', refresh);
+}
+function clearTokens() {
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+}
+
+// ── Logout ────────────────────────────────────────────────────────────────────
+function logout() {
+  clearTokens();
+  window.location.href = '/admin-login';
+}
+
+// ── Silent token refresh ──────────────────────────────────────────────────────
+async function tryRefresh() {
+  const refresh = getRefreshToken();
+  if (!refresh) return false;
+  try {
+    const res = await fetch('/auth/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refresh })
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    setTokens(data.access_token, data.refresh_token);
+    return true;
+  } catch { return false; }
+}
+
+// ── Authenticated fetch — auto-refreshes on 401, logs out on 403 ──────────────
+async function authFetch(url, options = {}) {
+  options.headers = { ...options.headers, 'Authorization': 'Bearer ' + getAccessToken() };
+  let res = await fetch(url, options);
+
+  if (res.status === 401) {
+    const refreshed = await tryRefresh();
+    if (!refreshed) { logout(); return null; }
+    options.headers['Authorization'] = 'Bearer ' + getAccessToken();
+    res = await fetch(url, options);
+  }
+
+  if (res.status === 403) { logout(); return null; }
+  return res;
+}
+
+// ── Load data ─────────────────────────────────────────────────────────────────
+async function loadData() {
+  const res = await authFetch('/dashboard/data');
+  if (!res) return;
+  if (!res.ok) { showError('Failed to load data.'); return; }
+
+  const data = await res.json();
+  allUsers = data.users;
+  allCourses = data.courses;
+  filteredUsers = [...allUsers];
+  filteredCourses = [...allCourses];
+
+  document.getElementById('stat-students').textContent = data.stats.total_users;
+  document.getElementById('stat-courses').textContent = data.stats.active_courses;
+  document.getElementById('stat-enrollments').textContent = data.stats.total_enrollments;
+
+  renderDash(dPage);
+  renderUsers(filteredUsers, uPage);
+  renderCourses(filteredCourses, cPage);
+}
+
+function showError(msg) {
+  ['dash-body','users-body','courses-body'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = `<tr><td colspan="6" class="error-msg">${msg}</td></tr>`;
+  });
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+const rolePill = r => {
+  const m = { admin: 'pill-purple', page_admin: 'pill-blue', student: 'pill-amber' };
+  return `<span class="pill ${m[r] || 'pill-blue'}">${r}</span>`;
+};
+
+const paginate = (data, page) => data.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
+
+function renderPag(cId, iId, data, page, setter) {
+  const tp = Math.max(1, Math.ceil(data.length/PAGE_SIZE));
+  const s = (page-1)*PAGE_SIZE+1, e = Math.min(page*PAGE_SIZE, data.length);
+  document.getElementById(iId).textContent = data.length ? `Showing ${s}–${e} of ${data.length}` : 'No results';
+  let html = `<button class="pag-btn" ${page===1?'disabled':''} onclick="${setter}(${page-1})">&#8249;</button>`;
+  for (let i=1;i<=tp;i++) html += `<button class="pag-btn ${i===page?'active':''}" onclick="${setter}(${i})">${i}</button>`;
+  html += `<button class="pag-btn" ${page===tp?'disabled':''} onclick="${setter}(${page+1})">&#8250;</button>`;
+  document.getElementById(cId).innerHTML = html;
+}
+
+function renderDash(page) {
+  const rows = paginate(allUsers, page);
+  document.getElementById('dash-body').innerHTML = rows.length
+    ? rows.map((u,i) => `<tr><td>${(page-1)*PAGE_SIZE+i+1}</td><td>${esc(u.name)}</td><td style="color:#888">${esc(u.email)}</td><td>${rolePill(u.role)}</td><td>${u.created_at}</td><td>${esc(u.course)}</td></tr>`).join('')
+    : '<tr><td colspan="6" class="loading">No users found.</td></tr>';
+  renderPag('dash-pag','dash-info',allUsers,page,'setDPage');
+}
+function setDPage(p) { dPage=p; renderDash(p); }
+
+function renderUsers(data, page) {
+  const rows = paginate(data, page);
+  document.getElementById('users-body').innerHTML = rows.length
+    ? rows.map((u,i) => `<tr><td>${(page-1)*PAGE_SIZE+i+1}</td><td>${esc(u.name)}</td><td style="color:#888">${esc(u.email)}</td><td>${rolePill(u.role)}</td><td>${u.created_at}</td><td>${esc(u.course)}</td></tr>`).join('')
+    : '<tr><td colspan="6" class="loading">No users found.</td></tr>';
+  renderPag('users-pag','users-info',data,page,'setUPage');
+}
+function setUPage(p) { uPage=p; renderUsers(filteredUsers,p); }
+function filterUsers(q) {
+  const lq = q.toLowerCase();
+  filteredUsers = allUsers.filter(u => u.name.toLowerCase().includes(lq) || u.email.toLowerCase().includes(lq));
+  uPage=1; renderUsers(filteredUsers,1);
+}
+
+function renderCourses(data, page) {
+  const rows = paginate(data, page);
+  document.getElementById('courses-body').innerHTML = rows.length
+    ? rows.map((c,i) => `<tr><td>${(page-1)*PAGE_SIZE+i+1}</td><td>${esc(c.name)}</td><td><span class="pill pill-blue">${esc(c.category)}</span></td><td>${c.enrolled}</td><td>&#8377;${c.price.toLocaleString()}</td><td><span class="pill ${c.status==='Active'?'pill-green':'pill-amber'}">${c.status}</span></td></tr>`).join('')
+    : '<tr><td colspan="6" class="loading">No courses found.</td></tr>';
+  renderPag('courses-pag','courses-info',data,page,'setCPage');
+}
+function setCPage(p) { cPage=p; renderCourses(filteredCourses,p); }
+function filterCourses(q) {
+  const lq = q.toLowerCase();
+  filteredCourses = allCourses.filter(c => c.name.toLowerCase().includes(lq) || c.category.toLowerCase().includes(lq));
+  cPage=1; renderCourses(filteredCourses,1);
+}
+
+function showPage(page, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  el.classList.add('active');
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+if (!getAccessToken()) { window.location.href = '/admin-login'; } else { loadData(); }
+</script>
+</body>
+</html>

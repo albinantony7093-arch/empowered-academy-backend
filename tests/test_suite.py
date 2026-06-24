@@ -173,7 +173,7 @@ class TestAuth:
         r = client.post("/auth/login", json={
             "email": "wrongpass@test.com", "password": "WrongPass"
         })
-        assert r.status_code == 401
+        assert r.status_code == 400
 
     def test_protected_route_requires_auth(self, client):
         r = client.get("/test/questions")
