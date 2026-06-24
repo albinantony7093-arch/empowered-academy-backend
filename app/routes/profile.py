@@ -76,7 +76,7 @@ def get_profile(
                 else:
                     # Fallback to latest test exam type
                     exam_type = "PG" if latest_exam_type == "NEET PG" else "UG"
-                
+
                 rank_data = calculate_rank_and_percentile(latest_score, exam_type, db)
             except Exception as e:
                 logger.warning(f"Failed to calculate rank for user {current_user.id}: {e}")
@@ -132,6 +132,7 @@ def get_profile(
             preferred_subjects=preferred_subjects,
             study_goal=user_profile.study_goal,
             rank=rank_data["rank"] if rank_data else None,
+            percentile=rank_data["percentile"] if rank_data else None,
             average_score=average_score,
             tests_taken=tests_taken,
             latest_test_marks=latest_marks,

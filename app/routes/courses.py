@@ -460,7 +460,7 @@ def submit_course_test(
     db.add(TestResult(
         user_id=current_user.id,
         attempt_id=attempt.id,
-        subject=attempt.exam,
+        subject="PG" if attempt.exam == "NEET PG" else "UG",
         score=float(result["total_correct"]),
         weak_areas=result["weak_areas"],
     ))

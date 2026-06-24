@@ -100,7 +100,7 @@ courses_data = [
         "is_flagship": True,
         "free_questions_per_test": 30,
         "free_daily_test_limit": 4,
-        "free_trial_days": 4,
+        "free_trial_days": 5,
         "questions_per_test": 45,
         "daily_test_limit": 6,
         "validity_days": 365,            # 1 year
@@ -194,7 +194,7 @@ courses_data = [
         "is_flagship": True,
         "free_questions_per_test": 30,
         "free_daily_test_limit": 4,
-        "free_trial_days": 4,            # 7-day free trial per PG doc
+        "free_trial_days": 5,            # 5-day free trial
         "questions_per_test": 45,
         "daily_test_limit": 6,
         "validity_days": 365,            # 1 year

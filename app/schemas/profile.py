@@ -32,6 +32,7 @@ class ProfileOut(BaseModel):
     preferred_subjects: Optional[List[str]] = None
     study_goal: Optional[str] = None
     rank: Optional[int] = None
+    percentile: Optional[float] = None
     average_score: Optional[float] = None
     tests_taken: int = 0
     latest_test_marks: Optional[float] = None

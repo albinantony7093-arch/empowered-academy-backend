@@ -118,7 +118,7 @@ def verify_otp(payload: OTPVerify, db: Session = Depends(get_db)):
 def login(payload: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=400, detail="Invalid credentials")
     return _make_tokens(user.id)
 
 
@@ -129,7 +129,7 @@ def login_swagger(form: OAuth2PasswordRequestForm = Depends(), db: Session = Dep
     """Form-based login used by Swagger UI authorize dialog."""
     user = db.query(User).filter(User.email == form.username).first()
     if not user or not verify_password(form.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=400, detail="Invalid credentials")
     return _make_tokens(user.id)
 
 
@@ -141,7 +141,7 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         logger.warning(f"Refresh attempted for non-existent user_id={user_id}")
-        raise HTTPException(status_code=401, detail="User not found")
+        raise HTTPException(status_code=404, detail="User not found")
     return _make_tokens(user.id)
 
 
